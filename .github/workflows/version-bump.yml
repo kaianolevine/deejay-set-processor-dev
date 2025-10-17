@@ -1,0 +1,32 @@
+name: Auto Version Bump
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Auto Increment Patch
+        run: |
+          CURRENT_VERSION=$(poetry version -s)
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+          NEW_VERSION="$major.$minor.$((patch+1))"
+          poetry version $NEW_VERSION
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "🔖 Bump version to $NEW_VERSION"
+          git tag -a "v$NEW_VERSION" -m "Release $NEW_VERSION"
+          git push --follow-tags
