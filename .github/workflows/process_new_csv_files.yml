@@ -30,5 +30,5 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
-      - name: Run process_new_csv_files
-        run: poetry run python src/tools/dj_set_processor/process_new_csv_files.py
+      - name: Run process_new_files
+        run: poetry run python src/dj_set_processor/process_new_files.py
