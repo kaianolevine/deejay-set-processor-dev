@@ -31,4 +31,4 @@ jobs:
         run: poetry install
 
       - name: Run process_new_files
-        run: poetry run python -m deejay_set_processor.process_new_files
+        run: poetry run python -u src/deejay_set_processor/process_new_files.py

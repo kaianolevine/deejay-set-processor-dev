@@ -8,7 +8,7 @@ import kaiano_common_utils.logger as log
 import kaiano_common_utils.sheets_formatting as format
 from googleapiclient.errors import HttpError
 
-import deejay_set_processor.deduplication as deduplication
+import deejay_set_processor.deduplice_summary as deduplication
 
 log = log.get_logger()
 
