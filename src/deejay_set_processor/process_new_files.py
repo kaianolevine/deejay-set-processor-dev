@@ -2,6 +2,7 @@ import os
 
 import kaiano_common_utils.config as config
 import kaiano_common_utils.google_drive as google_api
+import kaiano_common_utils.sheets_formatting as formatting
 from kaiano_common_utils import logger as log
 
 import deejay_set_processor.helpers as helpers
@@ -134,7 +135,7 @@ def process_csv_file(drive, file_metadata, year):
 
         sheet_id = google_api.upload_to_drive(drive, temp_path, year_folder_id)
         log.debug(f"Uploaded sheet ID: {sheet_id}")
-        google_api.apply_formatting_to_sheet(sheet_id)
+        formatting.apply_formatting_to_sheet(sheet_id)
         remove_summary_file_for_year(drive, year)
 
         try:

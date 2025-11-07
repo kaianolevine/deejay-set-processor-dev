@@ -30,7 +30,5 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
-      - name: ls
-        run: ls -la
       - name: Run process_new_files
         run: poetry run python -m deejay_set_processor.process_new_files
