@@ -1,4 +1,4 @@
-name: Create DJ Set Collection
+name: Update DJ Set Collection
 
 on:
   workflow_dispatch:
@@ -31,4 +31,4 @@ jobs:
         run: poetry install
 
       - name: Run create_dj_set_collection
-        run: poetry run python -u src/deejay_set_processor/update_dj_set_collection.py
+        run: poetry run python -u src/deejay_set_processor/update_deejay_set_collection.py
