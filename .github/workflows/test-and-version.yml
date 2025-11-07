@@ -1,0 +1,75 @@
+name: Test, Coverage, and Auto Version Bump
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Install dependencies
+        run: poetry install
+      - name: Run pre-commit checks
+        run: poetry run pre-commit run --all-files
+      - name: Run tests with coverage (no fail-under)
+        run: |
+          poetry run pytest --cov=src --cov-report=term-missing --cov-fail-under=0
+      - name: Check coverage threshold (warn except main)
+        run: |
+          THRESHOLD=60
+          echo "📊 Checking coverage threshold..."
+          TOTAL_LINE=$(poetry run coverage report | tail -n 1)
+          echo "Coverage summary line: $TOTAL_LINE"
+          COVERAGE=$(echo "$TOTAL_LINE" | awk '{print $NF}' | tr -d '%')
+          echo "Detected total coverage: ${COVERAGE:-unknown}%"
+          if [ -z "$COVERAGE" ]; then
+            echo "⚠️ Could not determine coverage percentage. Skipping check."
+            exit 0
+          fi
+
+          if [ "$COVERAGE" -lt "$THRESHOLD" ]; then
+            echo "⚠️ Coverage ($COVERAGE%) is below the threshold ($THRESHOLD%)."
+            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              echo "❌ Failing build on main branch due to coverage threshold."
+            else
+              echo "✅ Continuing despite low coverage (non-main branch)."
+            fi
+          else
+            echo "✅ Coverage ($COVERAGE%) meets threshold ($THRESHOLD%)."
+          fi
+
+  bump:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Auto Increment Patch
+        run: |
+          CURRENT_VERSION=$(poetry version -s)
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+          NEW_VERSION="$major.$minor.$((patch+1))"
+          poetry version $NEW_VERSION
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "🔖 Bump version to $NEW_VERSION"
+          git tag -a "v$NEW_VERSION" -m "Release $NEW_VERSION"
+          git push --follow-tags

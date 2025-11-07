@@ -1,0 +1,34 @@
+name: Generate Summaries
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [generate-summary]
+
+concurrency:
+  group: dj-set-collection
+  cancel-in-progress: false
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+      
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Run generate_summaries
+        run: poetry run python src/tools/dj_set_processor/generate_summaries.py
