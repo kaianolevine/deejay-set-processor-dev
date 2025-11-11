@@ -1,4 +1,5 @@
 name: Process New CSV Files
+run-name: Process New CSV Files (${{ github.event_name }})
 
 on:
   workflow_dispatch:

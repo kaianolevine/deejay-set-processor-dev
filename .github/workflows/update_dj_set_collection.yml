@@ -1,4 +1,5 @@
 name: Update DJ Set Collection
+run-name: Update DJ Set Collection (${{ github.event_name }})
 
 on:
   workflow_dispatch:

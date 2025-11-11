@@ -1,4 +1,5 @@
 name: Generate Summaries
+run-name: Generate Summaries (${{ github.event_name }})
 
 on:
   workflow_dispatch:
