@@ -306,9 +306,13 @@ def generate_summary_for_folder(
 
     # Create a duplicate of the generated spreadsheet before deduplication
     duplicated_name = "dedup_" + summary_name
-    duplicated_ss_id = google_drive.copy_file(drive_service, ss_id, duplicated_name, parent_folder_id=summary_folder_id)
+    duplicated_ss_id = google_drive.copy_file(
+        drive_service, ss_id, duplicated_name, parent_folder_id=summary_folder_id
+    )
     log.info(f"Original spreadsheet ID: {ss_id}")
-    log.info(f"Duplicated spreadsheet ID with name '{duplicated_name}': {duplicated_ss_id}")
+    log.info(
+        f"Duplicated spreadsheet ID with name '{duplicated_name}': {duplicated_ss_id}"
+    )
 
     # Run deduplication on the duplicate spreadsheet
     deduplication.deduplicate_summary(duplicated_ss_id)
