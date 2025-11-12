@@ -110,6 +110,7 @@ def generate_dj_set_collection():
                 format.set_column_formatting(
                     sheets_service, spreadsheet_id, config.SUMMARY_TAB_NAME, 2
                 )
+                format.apply_sheet_formatting(spreadsheet_id)
         elif rows:
             rows.sort(key=lambda r: r[0], reverse=True)
             log.debug(f"Adding sheet for folder '{name}' with {len(rows)} rows")
@@ -124,6 +125,7 @@ def generate_dj_set_collection():
             )
             log.info(f"Setting column formatting for sheet '{name}'")
             format.set_column_formatting(sheets_service, spreadsheet_id, name, 3)
+            format.apply_sheet_formatting(spreadsheet_id)
             tabs_to_add.append(name)
 
     # Clean up temp sheets if any
