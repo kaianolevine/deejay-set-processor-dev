@@ -306,7 +306,7 @@ def generate_summary_for_folder(
 
     # Create a duplicate of the generated spreadsheet before deduplication
     duplicated_name = "dedup_" + summary_name
-    duplicated_ss_id = google_drive.copy_file(
+    duplicated_ss_id = copy_file(
         drive_service, ss_id, duplicated_name, parent_folder_id=summary_folder_id
     )
     log.info(f"Original spreadsheet ID: {ss_id}")
@@ -316,6 +316,45 @@ def generate_summary_for_folder(
 
     # Run deduplication on the duplicate spreadsheet
     deduplication.deduplicate_summary(duplicated_ss_id)
+
+
+def copy_file(
+    drive_service, source_file_id: str, new_name: str, parent_folder_id: str = None
+) -> str:
+    """
+    Create a copy of a file in Google Drive.
+
+    Args:
+        drive_service: Authorized Google Drive API service instance.
+        source_file_id: ID of the file to copy.
+        new_name: Name for the new (copied) file.
+        parent_folder_id: Optional. Folder ID to place the copied file in.
+
+    Returns:
+        The ID of the newly copied file.
+
+    Raises:
+        HttpError: If the Drive API request fails.
+    """
+    try:
+        body = {"name": new_name}
+        if parent_folder_id:
+            body["parents"] = [parent_folder_id]
+
+        log.info(
+            f"📄 Copying file {source_file_id} → '{new_name}' in folder {parent_folder_id}"
+        )
+        copied_file = (
+            drive_service.files().copy(fileId=source_file_id, body=body).execute()
+        )
+
+        new_file_id = copied_file.get("id")
+        log.info(f"✅ File copied successfully: {new_file_id}")
+        return new_file_id
+
+    except HttpError as e:
+        log.error(f"❌ Error copying file {source_file_id} → '{new_name}': {e}")
+        raise
 
 
 if __name__ == "__main__":
