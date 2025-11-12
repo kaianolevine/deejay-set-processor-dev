@@ -140,6 +140,7 @@ def generate_dj_set_collection():
         tabs_to_add + [config.SUMMARY_TAB_NAME],
         metadata,
     )
+    format.apply_formatting_to_sheet(spreadsheet_id)
     log.info("Completed reordering sheets")
 
     log.info("✅ Finished generate_dj_set_collection")
