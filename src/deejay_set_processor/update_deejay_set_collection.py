@@ -102,6 +102,10 @@ def generate_dj_set_collection():
                     config.SUMMARY_TAB_NAME,
                     [["Year", "Link"]] + all_rows,
                 )
+                # Format first column as number (year) with 4 digits
+                format.set_column_number_formatting(
+                    sheets_service, spreadsheet_id, config.SUMMARY_TAB_NAME, [0]
+                )
                 log.info("Setting column formatting for Summary sheet")
                 format.set_column_formatting(
                     sheets_service, spreadsheet_id, config.SUMMARY_TAB_NAME, 2
