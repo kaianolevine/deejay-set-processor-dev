@@ -103,7 +103,7 @@ def generate_dj_set_collection():
                     [["Year", "Link"]] + all_rows,
                 )
                 # Force plain text formatting for the first column to prevent Google Sheets from converting year numbers (e.g., 2025) into dates like 1905-07-17
-                format.set_column_text_formatting(
+                set_column_text_formatting(
                     sheets_service, spreadsheet_id, config.SUMMARY_TAB_NAME, [0]
                 )
                 log.info("Setting column formatting for Summary sheet")
@@ -145,22 +145,20 @@ def generate_dj_set_collection():
     log.info("✅ Finished generate_dj_set_collection")
 
 
-def set_column_number_formatting(
-    sheets_service,
-    spreadsheet_id: str,
-    sheet_name: str,
-    column_indexes,
-    pattern: str = "0",
+def set_column_text_formatting(
+    sheets_service, spreadsheet_id: str, sheet_name: str, column_indexes
 ):
     """
-    Set number formatting for the given zero-based column indexes on a sheet.
+    Force plain text formatting for the given zero-based column indexes on a sheet.
+
+    This prevents Google Sheets from auto-parsing numeric-looking values (e.g., 2025)
+    into dates (e.g., 1905-07-17).
 
     Args:
         sheets_service: Authorized Google Sheets API service.
         spreadsheet_id: ID of the spreadsheet.
         sheet_name: Title of the target sheet.
         column_indexes: Iterable of zero-based column indexes to format.
-        pattern: Number format pattern (e.g., "0" for integers, "0.00" for 2 decimals, "0000" for 4-digit padding).
     """
     # Resolve the sheetId from the sheet name
     meta = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
@@ -179,7 +177,7 @@ def set_column_number_formatting(
 
     sheet_id = sheet["properties"]["sheetId"]
 
-    # Build requests to apply the number format to the entire column (excluding header row)
+    # Apply TEXT number format (pattern "@") to the entire column, skipping the header row
     requests = []
     for col in column_indexes:
         requests.append(
@@ -194,8 +192,8 @@ def set_column_number_formatting(
                     "cell": {
                         "userEnteredFormat": {
                             "numberFormat": {
-                                "type": "NUMBER",
-                                "pattern": pattern,
+                                "type": "TEXT",
+                                "pattern": "@",
                             }
                         }
                     },
