@@ -103,7 +103,7 @@ def generate_dj_set_collection():
                     [["Year", "Link"]] + all_rows,
                 )
                 # Format first column as number (year) with 4 digits
-                format.set_column_number_formatting(
+                set_column_number_formatting(
                     sheets_service, spreadsheet_id, config.SUMMARY_TAB_NAME, [0]
                 )
                 log.info("Setting column formatting for Summary sheet")
@@ -143,6 +143,56 @@ def generate_dj_set_collection():
     log.info("Completed reordering sheets")
 
     log.info("✅ Finished generate_dj_set_collection")
+
+
+def set_column_number_formatting(sheets_service, spreadsheet_id: str, sheet_name: str, column_indexes, pattern: str = "0"):
+    """
+    Set number formatting for the given zero-based column indexes on a sheet.
+
+    Args:
+        sheets_service: Authorized Google Sheets API service.
+        spreadsheet_id: ID of the spreadsheet.
+        sheet_name: Title of the target sheet.
+        column_indexes: Iterable of zero-based column indexes to format.
+        pattern: Number format pattern (e.g., "0" for integers, "0.00" for 2 decimals, "0000" for 4-digit padding).
+    """
+    # Resolve the sheetId from the sheet name
+    meta = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+    sheet = next((s for s in meta.get("sheets", []) if s.get("properties", {}).get("title") == sheet_name), None)
+    if not sheet:
+        raise ValueError(f"Sheet named '{sheet_name}' not found in spreadsheet {spreadsheet_id}")
+
+    sheet_id = sheet["properties"]["sheetId"]
+
+    # Build requests to apply the number format to the entire column (excluding header row)
+    requests = []
+    for col in column_indexes:
+        requests.append(
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": 1,  # leave header row unmodified
+                        "startColumnIndex": int(col),
+                        "endColumnIndex": int(col) + 1,
+                    },
+                    "cell": {
+                        "userEnteredFormat": {
+                            "numberFormat": {
+                                "type": "NUMBER",
+                                "pattern": pattern,
+                            }
+                        }
+                    },
+                    "fields": "userEnteredFormat.numberFormat",
+                }
+            }
+        )
+
+    if requests:
+        sheets_service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": requests}
+        ).execute()
 
 
 if __name__ == "__main__":
