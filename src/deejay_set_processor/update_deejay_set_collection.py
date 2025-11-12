@@ -145,7 +145,13 @@ def generate_dj_set_collection():
     log.info("✅ Finished generate_dj_set_collection")
 
 
-def set_column_number_formatting(sheets_service, spreadsheet_id: str, sheet_name: str, column_indexes, pattern: str = "0"):
+def set_column_number_formatting(
+    sheets_service,
+    spreadsheet_id: str,
+    sheet_name: str,
+    column_indexes,
+    pattern: str = "0",
+):
     """
     Set number formatting for the given zero-based column indexes on a sheet.
 
@@ -158,9 +164,18 @@ def set_column_number_formatting(sheets_service, spreadsheet_id: str, sheet_name
     """
     # Resolve the sheetId from the sheet name
     meta = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-    sheet = next((s for s in meta.get("sheets", []) if s.get("properties", {}).get("title") == sheet_name), None)
+    sheet = next(
+        (
+            s
+            for s in meta.get("sheets", [])
+            if s.get("properties", {}).get("title") == sheet_name
+        ),
+        None,
+    )
     if not sheet:
-        raise ValueError(f"Sheet named '{sheet_name}' not found in spreadsheet {spreadsheet_id}")
+        raise ValueError(
+            f"Sheet named '{sheet_name}' not found in spreadsheet {spreadsheet_id}"
+        )
 
     sheet_id = sheet["properties"]["sheetId"]
 
