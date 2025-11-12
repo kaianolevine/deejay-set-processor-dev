@@ -102,8 +102,8 @@ def generate_dj_set_collection():
                     config.SUMMARY_TAB_NAME,
                     [["Year", "Link"]] + all_rows,
                 )
-                # Format first column as number (year) with 4 digits
-                set_column_number_formatting(
+                # Force plain text formatting for the first column to prevent Google Sheets from converting year numbers (e.g., 2025) into dates like 1905-07-17
+                format.set_column_text_formatting(
                     sheets_service, spreadsheet_id, config.SUMMARY_TAB_NAME, [0]
                 )
                 log.info("Setting column formatting for Summary sheet")
