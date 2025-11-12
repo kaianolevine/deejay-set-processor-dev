@@ -66,7 +66,7 @@ def generate_dj_set_collection():
             #    continue
 
             if name.lower() == "summary":
-                year_match = re.match(r"^(\d{4})", file_name)
+                year_match = re.search(r"\b(20\d{2})\b", file_name)
                 year = year_match.group(1) if year_match else ""
                 rows.append([year, f'=HYPERLINK("{file_url}", "{file_name}")'])
             else:
