@@ -172,7 +172,8 @@ def deduplicate_summary(spreadsheet_id: str):
             body=body,
         ).execute()
 
-    format.apply_sheet_formatting(spreadsheet_id)
+    log.info(f"✅ Starting apply_sheet_formatting for spreadsheet: {spreadsheet_id}")
+    format.apply_sheet_formatting(spreadsheet)
     log.info(f"✅ Finished deduplicate_summary for spreadsheet: {spreadsheet_id}")
 
 
