@@ -1,6 +1,9 @@
+import argparse
+import sys
+from typing import Any
+
 import kaiano_common_utils.google_sheets as google_sheets
 import kaiano_common_utils.logger as log
-import kaiano_common_utils.sheets_formatting as format
 
 
 def deduplicate_summary(spreadsheet_id: str):
@@ -29,47 +32,69 @@ def deduplicate_summary(spreadsheet_id: str):
         header = data[0]
         rows = data[1:]
 
-        # Ensure 'Count' column exists
-        if "Count" not in header:
+        # Ensure 'Count' column exists (case-insensitive)
+        count_index = _find_column_index_ci(header, "Count")
+        if count_index is None:
             header.append("Count")
             rows = [row + ["1"] for row in rows]
-        count_index = header.index("Count")
+            count_index = len(header) - 1
 
         # Normalize row lengths
         for i, row in enumerate(rows):
             if len(row) < len(header):
-                rows[i] = row + [""] * (len(header) - len(row))
+                row = row + [""] * (len(header) - len(row))
             elif len(row) > len(header):
-                rows[i] = row[: len(header)]
+                row = row[: len(header)]
+
+            # Strip leading/trailing whitespace on ALL cells (this affects what we write back).
+            row = [_strip_cell_value(v) for v in row]
+            rows[i] = row
+
+        # Build a non-adjacent dedup map keyed by row values (excluding Count).
+        length_index = _find_column_index_ci(header, "Length")
+        # Placeholder for future BPM normalization if desired (not applied for now).
+        bpm_index = _find_column_index_ci(header, "BPM")
+
+        key_to_template = {}
+        key_to_count = {}
+
+        for row in rows:
+            try:
+                row_count = int(_strip_cell_value(row[count_index]))
+            except Exception:
+                row_count = 0
+
+            key_parts = []
+            for col_i, cell in enumerate(row):
+                if col_i == count_index:
+                    continue
+
+                cell_str = _normalize_key_cell(cell)
+
+                if length_index is not None and col_i == length_index:
+                    cell_str = _normalize_length(cell_str)
+
+                # Normalize BPM for key comparisons (e.g., treat '100' and '100.0' as equal).
+                if bpm_index is not None and col_i == bpm_index:
+                    cell_str = _normalize_bpm(cell_str)
+
+                key_parts.append(cell_str)
+
+            key = tuple(key_parts)
+
+            if key not in key_to_template:
+                key_to_template[key] = row.copy()
+                key_to_count[key] = row_count
+            else:
+                key_to_count[key] += row_count
 
         deduped_rows = []
         total_count_sum = 0
-
-        i = 0
-        while i < len(rows):
-            current_row = rows[i]
-            try:
-                current_count = int(current_row[count_index])
-            except Exception:
-                current_count = 0
-
-            j = i + 1
-            while j < len(rows):
-                next_row = rows[j]
-                if rows_equal_except_count(current_row, next_row, count_index):
-                    try:
-                        current_count += int(next_row[count_index])
-                    except Exception:
-                        pass
-                    j += 1
-                else:
-                    break
-
-            combined_row = current_row.copy()
-            combined_row[count_index] = str(current_count)
-            deduped_rows.append(combined_row)
-            total_count_sum += current_count
-            i = j
+        for key, template_row in key_to_template.items():
+            combined = template_row.copy()
+            combined[count_index] = str(key_to_count[key])
+            deduped_rows.append(combined)
+            total_count_sum += key_to_count[key]
 
         log.debug(
             f"Sheet '{sheet_name}': original rows={len(rows)}, deduplicated rows={len(deduped_rows)}, total count={total_count_sum}"
@@ -77,11 +102,129 @@ def deduplicate_summary(spreadsheet_id: str):
 
         final_data = [header] + deduped_rows
         google_sheets.clear_sheet(sheets_service, spreadsheet_id, sheet_name)
-        format.update_sheet_values(
-            sheets_service, spreadsheet_id, sheet_name, final_data
-        )
+        body = {"values": final_data}
+        sheets_service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"{sheet_name}!A1",
+            valueInputOption="RAW",
+            body=body,
+        ).execute()
 
     log.info(f"✅ Finished deduplicate_summary for spreadsheet: {spreadsheet_id}")
+
+
+def _find_column_index_ci(header: list[str], target: str) -> int | None:
+    for i, h in enumerate(header):
+        if _normalize_key_cell(h).lower() == _normalize_key_cell(target).lower():
+            return i
+    return None
+
+
+def _normalize_key_cell(value: Any) -> str:
+    """Normalize cell text for deduplication key comparisons.
+
+    This is intentionally *more aggressive* than what we write back to the sheet.
+    It strips invisible unicode format characters (e.g. zero-width space, BOM),
+    normalizes unicode width/compat forms, and collapses whitespace.
+
+    NOTE: We only apply this to the *key*, not to the stored template row.
+    """
+    if value is None:
+        s = ""
+    else:
+        s = str(value)
+
+    # Normalize non-breaking spaces and common whitespace to plain spaces
+    s = s.replace("\u00A0", " ")  # NBSP
+    s = s.replace("\t", " ").replace("\r", " ").replace("\n", " ")
+
+    try:
+        import unicodedata
+
+        # Compatibility normalize (e.g. full-width → normal width)
+        s = unicodedata.normalize("NFKC", s)
+
+        # Remove invisible/format characters (category Cf), e.g. \u200b, \ufeff
+        s = "".join(ch for ch in s if unicodedata.category(ch) != "Cf")
+    except Exception:
+        pass
+
+    # Collapse runs of whitespace and trim
+    s = " ".join(s.split())
+    return s
+
+
+def _strip_cell_value(value: Any) -> str:
+    """Strip leading/trailing whitespace from a cell value.
+
+    This mutates what we write back to Sheets (unlike `_normalize_key_cell`, which is key-only).
+    We keep internal whitespace intact; we only remove leading/trailing whitespace and convert
+    NBSP to a normal space first.
+    """
+    if value is None:
+        return ""
+    s = str(value)
+    s = s.replace("\u00A0", " ")  # NBSP → space
+    return s.strip()
+
+
+def _normalize_length(value: str) -> str:
+    """Normalize length values so '2:52' and '02:52' are treated as equal.
+
+    Keeps data as plain text; only removes leading zeros from the minutes component
+    and zero-pads seconds to 2 digits when parseable.
+    """
+    if value is None:
+        return ""
+    s = _normalize_key_cell(value)
+    if not s:
+        return ""
+
+    parts = s.split(":")
+    if len(parts) != 2:
+        # Not an MM:SS format; leave as-is.
+        return s
+
+    mm_raw, ss_raw = parts[0].strip(), parts[1].strip()
+    try:
+        mm = int(mm_raw) if mm_raw else 0
+        ss = int(ss_raw) if ss_raw else 0
+    except Exception:
+        return s
+
+    # Clamp seconds to a sane range if someone wrote 60+; keep original if weird.
+    if ss < 0 or ss >= 60 or mm < 0:
+        return s
+
+    return f"{mm}:{ss:02d}"
+
+
+def _normalize_bpm(value: Any) -> str:
+    """Normalize BPM values for deduplication key comparisons.
+
+    Treats numeric equivalents as equal (e.g., '100' == '100.0').
+    Leaves non-numeric BPM text unchanged.
+
+    NOTE: This is key-only; we do not mutate what gets written back.
+    """
+    s = _normalize_key_cell(value)
+    if not s:
+        return ""
+
+    # Common case: int-like or float-like strings
+    try:
+        f = float(s)
+    except Exception:
+        return s
+
+    # If it's effectively an integer, drop the .0
+    if abs(f - round(f)) < 1e-9:
+        return str(int(round(f)))
+
+    # Otherwise keep a stable string form (trim trailing zeros)
+    # e.g. 100.50 -> '100.5'
+    out = ("%f" % f).rstrip("0").rstrip(".")
+    return out
 
 
 def rows_equal_except_count(row1, row2, count_index):
@@ -89,3 +232,33 @@ def rows_equal_except_count(row1, row2, count_index):
         (i == count_index or (i < len(row1) and i < len(row2) and row1[i] == row2[i]))
         for i in range(len(row1))
     )
+
+
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Deduplicate one or more Google Sheets spreadsheets in-place by combining duplicate rows "
+            "(summing the Count column) across all tabs."
+        )
+    )
+    parser.add_argument(
+        "spreadsheet_ids",
+        nargs="+",
+        help=(
+            "One or more Google Sheets spreadsheet IDs to deduplicate (in-place). "
+            "Example: 174AK9BTKpRhf4_uUSR5GtWarTSxEiVUdhvrn6Jk-OMA"
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+if __name__ == "__main__":
+    args = _parse_args(sys.argv[1:])
+    exit_code = 0
+    for ss_id in args.spreadsheet_ids:
+        try:
+            deduplicate_summary(ss_id)
+        except Exception as e:
+            log.error(f"❌ Dedup failed for spreadsheet {ss_id}: {e}")
+            exit_code = 1
+    raise SystemExit(exit_code)

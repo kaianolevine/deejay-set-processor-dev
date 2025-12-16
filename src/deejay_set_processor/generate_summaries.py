@@ -14,10 +14,8 @@ log = log.get_logger()
 
 
 def _safe_get_spreadsheet(sheet_service, spreadsheet_id, fields=None, max_retries=6):
-    """Get spreadsheet metadata with exponential backoff on rate limits (429).
+    """Get spreadsheet metadata with exponential backoff on transient errors."""
 
-    Returns the decoded response dict or raises the last exception.
-    """
     delay = 1.0
     for attempt in range(max_retries):
         try:
@@ -29,11 +27,13 @@ def _safe_get_spreadsheet(sheet_service, spreadsheet_id, fields=None, max_retrie
             return req.execute()
         except HttpError as e:
             status = getattr(e.resp, "status", None)
-            # Retry on rate limit errors
-            if status == 429 or (status == 403 and "quota" in str(e).lower()):
-                wait = delay + random.uniform(0, 0.5)
+            # Retry on rate limits and transient service errors
+            if status in (429, 500, 503) or (
+                status == 403 and "quota" in str(e).lower()
+            ):
+                wait = delay * (0.7 + random.random() * 0.6)  # 0.7x–1.3x jitter
                 log.warning(
-                    f"Rate limited when fetching spreadsheet {spreadsheet_id}; retrying in {wait:.1f}s (attempt {attempt+1}/{max_retries})"
+                    f"⚠️ Retryable error {status} when fetching spreadsheet {spreadsheet_id}; retrying in {wait:.1f}s (attempt {attempt+1}/{max_retries})"
                 )
                 time.sleep(wait)
                 delay *= 2
@@ -52,10 +52,13 @@ def retry_with_backoff(task_fn, max_retries=6, base_delay=1.0, task_description=
             return task_fn()
         except HttpError as e:
             status = getattr(e.resp, "status", None)
-            if status == 429 or (status == 403 and "quota" in str(e).lower()):
-                wait = base_delay * (2**attempt) + random.uniform(0, 0.5)
+            if status in (429, 500, 503) or (
+                status == 403 and "quota" in str(e).lower()
+            ):
+                delay = base_delay * (2**attempt)
+                wait = min(60.0, delay) * (0.7 + random.random() * 0.6)  # jitter + cap
                 log.warning(
-                    f"⚠️ Rate limited on {task_description}, retrying in {wait:.1f}s (attempt {attempt+1}/{max_retries})"
+                    f"⚠️ Retryable HttpError {status} on {task_description}, retrying in {wait:.1f}s (attempt {attempt+1}/{max_retries})"
                 )
                 time.sleep(wait)
                 continue
@@ -88,7 +91,6 @@ def generate_next_missing_summary():
         mime_type="application/vnd.google-apps.folder",
     )
     log.debug(f"Year folders found: {[f['name'] for f in year_folders]}")
-    processed_any = False
     for folder in year_folders:
         year = folder["name"]
         if year.lower() == "summary":
@@ -100,9 +102,12 @@ def generate_next_missing_summary():
         )
         log.debug(f"Found existing summaries for {year}: {existing_summaries}")
         if existing_summaries:
-            log.info(f"✅ Summary already exists for {year}")
-            if processed_any:
-                break
+            log.info(
+                f"✅ Summary already exists for {year} — running dedup and continuing"
+            )
+            # Prefer the first match (Drive API ordering is typically most-recent first, but not guaranteed).
+            existing_id = existing_summaries[0]["id"]
+            deduplication.deduplicate_summary(existing_id)
             continue
 
         log.debug(f"Getting files for year {year}")
@@ -120,18 +125,18 @@ def generate_next_missing_summary():
         log.debug(f"Files to process for {year}: {[f['name'] for f in files]}")
         log.info(f"🔧 Generating summary for {year}...")
         generate_summary_for_folder(
-            drive_service, sheet_service, files, summary_folder, summary_name, year
+            drive_service, sheet_service, files, summary_folder, year
         )
-        processed_any = True
-        break
 
 
 def generate_summary_for_folder(
-    drive_service, sheet_service, files, summary_folder_id, summary_name, year
+    drive_service, sheet_service, files, summary_folder_id, year
 ):
     log.debug(
         f"Starting generate_summary_for_folder for year {year} with {len(files)} files"
     )
+    combined_name = f"CombinedSummary{year}"
+    summary_name = f"{year} Summary"
     all_headers = set()
     sheet_data = []
 
@@ -194,6 +199,18 @@ def generate_summary_for_folder(
                 if filtered_rows:
                     all_headers.update(filtered_header)
                     sheet_data.append((filtered_header, filtered_rows))
+        except HttpError as e:
+            status = getattr(e.resp, "status", None)
+            # If we exhausted retries and still hit a transient error, skip this file and continue.
+            if status in (429, 500, 503) or (
+                status == 403 and "quota" in str(e).lower()
+            ):
+                log.error(
+                    f"⚠️ Skipping '{f['name']}' due to retryable HttpError {status} after retries – {e}"
+                )
+                continue
+            log.error(f"❌ Fatal HttpError accessing {f['name']} – {e}")
+            raise
         except Exception as e:
             log.error(f"❌ Fatal error accessing {f['name']} – {e}")
             raise
@@ -225,9 +242,9 @@ def generate_summary_for_folder(
         final_rows.sort()
 
     ss_id = google_drive.create_spreadsheet(
-        drive_service, name=summary_name, parent_folder_id=summary_folder_id
+        drive_service, name=combined_name, parent_folder_id=summary_folder_id
     )
-    log.debug(f"Created spreadsheet ID for {summary_name}: {ss_id}")
+    log.debug(f"Created spreadsheet ID for {combined_name}: {ss_id}")
 
     # Ensure a sheet named "Summary" exists
     spreadsheet_info = _safe_get_spreadsheet(
@@ -304,18 +321,17 @@ def generate_summary_for_folder(
     )
     log.info("Formatting of 'Summary' sheet complete.")
 
-    # Create a duplicate of the generated spreadsheet before deduplication
-    duplicated_name = "dedup_" + summary_name
-    duplicated_ss_id = copy_file(
-        drive_service, ss_id, duplicated_name, parent_folder_id=summary_folder_id
+    # Copy the generated combined summary to the year summary name
+    year_summary_id = copy_file(
+        drive_service, ss_id, summary_name, parent_folder_id=summary_folder_id
     )
-    log.info(f"Original spreadsheet ID: {ss_id}")
+    log.info(f"Combined summary spreadsheet ID: {ss_id}")
     log.info(
-        f"Duplicated spreadsheet ID with name '{duplicated_name}': {duplicated_ss_id}"
+        f"Year summary spreadsheet ID with name '{summary_name}': {year_summary_id}"
     )
 
-    # Run deduplication on the duplicate spreadsheet
-    deduplication.deduplicate_summary(duplicated_ss_id)
+    # Run deduplication on the year summary spreadsheet
+    deduplication.deduplicate_summary(year_summary_id)
 
 
 def copy_file(
