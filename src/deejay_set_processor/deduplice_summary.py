@@ -179,39 +179,24 @@ def deduplicate_summary(spreadsheet_id: str):
 
 # Helper for best-effort formatting via gspread
 def _apply_sheet_formatting_safe(spreadsheet_id: str) -> None:
-    """Apply formatting using the object type expected by kaiano_common_utils.
+    """Best-effort formatting wrapper.
 
-    `kaiano_common_utils.sheets_formatting.apply_sheet_formatting(...)` formats via
-    `gspread`-style worksheet objects (e.g., Worksheet.format). The Sheets API `.get()`
-    response is a plain dict and will raise `AttributeError: 'dict' object has no attribute 'format'`.
-
-    This helper attempts to obtain a gspread Spreadsheet via kaiano_common_utils.google_sheets
-    (if available). If that isn't available in the runtime environment, we log and skip formatting
-    rather than failing the entire run.
+    We keep deduplication fully functional even if formatting fails.
+    Prefer `kaiano_common_utils.sheets_formatting.apply_formatting_to_sheet(spreadsheet_id)`,
+    which formats all worksheets in the spreadsheet.
     """
     try:
-        # Preferred: kaiano_common_utils.google_sheets exposes a gspread client helper.
-        if hasattr(google_sheets, "get_gspread_client"):
-            gc = google_sheets.get_gspread_client()
-            gs_spreadsheet = gc.open_by_key(spreadsheet_id)
-            format.apply_formatting_to_sheet(gs_spreadsheet)
+        # kaiano_common_utils already knows how to open the spreadsheet and format all worksheets.
+        if hasattr(format, "apply_formatting_to_sheet"):
+            format.apply_formatting_to_sheet(spreadsheet_id)
             return
 
-        # Fallback: some versions expose `get_spreadsheet` / `open_spreadsheet` helpers.
-        for fn_name in ("get_spreadsheet", "open_spreadsheet", "open_by_key"):
-            if hasattr(google_sheets, fn_name):
-                fn = getattr(google_sheets, fn_name)
-                gs_spreadsheet = fn(spreadsheet_id)
-                format.apply_formatting_to_sheet(gs_spreadsheet)
-                return
-
+        # Back-compat: older utils may only expose apply_sheet_formatting(sheet_worksheet)
         log.warning(
-            "⚠️ Skipping apply_formatting_to_sheet: no gspread client helper found in kaiano_common_utils.google_sheets."
+            "⚠️ Skipping formatting: kaiano_common_utils.sheets_formatting.apply_formatting_to_sheet is not available."
         )
     except Exception as e:
-        log.warning(
-            f"⚠️ apply_formatting_to_sheet failed (continuing without formatting): {e}"
-        )
+        log.warning(f"⚠️ Formatting failed (continuing without formatting): {e}")
 
 
 def _find_column_index_ci(header: list[str], target: str) -> int | None:

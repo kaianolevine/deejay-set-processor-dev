@@ -99,14 +99,28 @@ def generate_next_missing_summary():
         existing_summaries = google_drive.get_files_in_folder(
             drive_service, summary_folder, name_contains=summary_name
         )
-        log.debug(f"Found existing summaries for {year}: {existing_summaries}")
-        if existing_summaries:
+        # `name_contains` can return multiple matches (e.g., "dedup_2018 Summary", "2018 Summary (Copy)", etc.).
+        # We only want to dedup the canonical "{year} Summary" file.
+        existing_names = [f.get("name", "") for f in existing_summaries]
+        log.debug(f"Found existing summaries for {year}: {existing_names}")
+
+        canonical = next(
+            (f for f in existing_summaries if f.get("name") == summary_name), None
+        )
+        if canonical:
             log.info(
-                f"✅ Summary already exists for {year} — running dedup and continuing"
+                f"✅ Summary already exists for {year} — running dedup on '{summary_name}' and continuing"
             )
-            # Prefer the first match (Drive API ordering is typically most-recent first, but not guaranteed).
-            existing_id = existing_summaries[0]["id"]
-            deduplication.deduplicate_summary(existing_id)
+            deduplication.deduplicate_summary(canonical["id"])
+            continue
+
+        if existing_summaries:
+            # We found something that *contains* the name, but not the canonical one.
+            # This can happen if older runs left behind testing copies or dedup_* files.
+            log.warning(
+                f"⚠️ Found summary-like files for {year} but no exact '{summary_name}' match. "
+                f"Skipping dedup to avoid modifying the wrong file. Matches: {existing_names}"
+            )
             continue
 
         log.debug(f"Getting files for year {year}")
