@@ -173,8 +173,45 @@ def deduplicate_summary(spreadsheet_id: str):
         ).execute()
 
     log.info(f"✅ Starting apply_sheet_formatting for spreadsheet: {spreadsheet_id}")
-    format.apply_sheet_formatting(spreadsheet)
+    _apply_sheet_formatting_safe(spreadsheet_id)
     log.info(f"✅ Finished deduplicate_summary for spreadsheet: {spreadsheet_id}")
+
+
+# Helper for best-effort formatting via gspread
+def _apply_sheet_formatting_safe(spreadsheet_id: str) -> None:
+    """Apply formatting using the object type expected by kaiano_common_utils.
+
+    `kaiano_common_utils.sheets_formatting.apply_sheet_formatting(...)` formats via
+    `gspread`-style worksheet objects (e.g., Worksheet.format). The Sheets API `.get()`
+    response is a plain dict and will raise `AttributeError: 'dict' object has no attribute 'format'`.
+
+    This helper attempts to obtain a gspread Spreadsheet via kaiano_common_utils.google_sheets
+    (if available). If that isn't available in the runtime environment, we log and skip formatting
+    rather than failing the entire run.
+    """
+    try:
+        # Preferred: kaiano_common_utils.google_sheets exposes a gspread client helper.
+        if hasattr(google_sheets, "get_gspread_client"):
+            gc = google_sheets.get_gspread_client()
+            gs_spreadsheet = gc.open_by_key(spreadsheet_id)
+            format.apply_sheet_formatting(gs_spreadsheet)
+            return
+
+        # Fallback: some versions expose `get_spreadsheet` / `open_spreadsheet` helpers.
+        for fn_name in ("get_spreadsheet", "open_spreadsheet", "open_by_key"):
+            if hasattr(google_sheets, fn_name):
+                fn = getattr(google_sheets, fn_name)
+                gs_spreadsheet = fn(spreadsheet_id)
+                format.apply_sheet_formatting(gs_spreadsheet)
+                return
+
+        log.warning(
+            "⚠️ Skipping apply_sheet_formatting: no gspread client helper found in kaiano_common_utils.google_sheets."
+        )
+    except Exception as e:
+        log.warning(
+            f"⚠️ apply_sheet_formatting failed (continuing without formatting): {e}"
+        )
 
 
 def _find_column_index_ci(header: list[str], target: str) -> int | None:
