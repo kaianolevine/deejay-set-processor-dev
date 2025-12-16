@@ -135,7 +135,7 @@ def generate_summary_for_folder(
     log.debug(
         f"Starting generate_summary_for_folder for year {year} with {len(files)} files"
     )
-    combined_name = f"CombinedSummary{year}"
+    combined_name = f"_TestingOnly_{year}"
     summary_name = f"{year} Summary"
     all_headers = set()
     sheet_data = []
