@@ -39,6 +39,8 @@ def deduplicate_summary(spreadsheet_id: str):
             rows = [row + ["1"] for row in rows]
             count_index = len(header) - 1
 
+        title_index = _find_column_index_ci(header, "Title")
+
         # Normalize row lengths
         for i, row in enumerate(rows):
             if len(row) < len(header):
@@ -93,7 +95,11 @@ def deduplicate_summary(spreadsheet_id: str):
                     continue
                 if col_i in optional_indices:
                     continue
-                identity_parts.append(_normalize_key_cell(cell).lower())
+                norm = _normalize_key_cell(cell)
+                if title_index is not None and col_i == title_index:
+                    # For title key comparison only: remove all non-alphanumeric characters, including whitespace
+                    norm = "".join(ch for ch in norm if ch.isalnum())
+                identity_parts.append(norm.lower())
 
             identity_key = tuple(identity_parts)
 
