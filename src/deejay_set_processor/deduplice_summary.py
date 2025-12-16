@@ -55,8 +55,31 @@ def deduplicate_summary(spreadsheet_id: str):
         # Placeholder for future BPM normalization if desired (not applied for now).
         bpm_index = _find_column_index_ci(header, "BPM")
 
-        key_to_template = {}
-        key_to_count = {}
+        comment_index = _find_column_index_ci(header, "Comment")
+        genre_index = _find_column_index_ci(header, "Genre")
+        year_index = _find_column_index_ci(header, "Year")
+
+        optional_indices = [
+            i
+            for i in [comment_index, genre_index, year_index, length_index, bpm_index]
+            if i is not None
+        ]
+
+        # Group rows by an identity key that excludes Count and the optional match columns.
+        # Within each identity key, merge rows when optional columns are compatible:
+        # - empty vs non-empty is allowed (and we fill template with the non-empty value)
+        # - non-empty vs different non-empty is NOT allowed
+        identity_to_entries: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+
+        def _norm_optional(col_i: int, cell: Any) -> str:
+            s = _normalize_key_cell(cell)
+            if not s:
+                return ""
+            if length_index is not None and col_i == length_index:
+                return _normalize_length(s)
+            if bpm_index is not None and col_i == bpm_index:
+                return _normalize_bpm(s)
+            return s
 
         for row in rows:
             try:
@@ -64,37 +87,69 @@ def deduplicate_summary(spreadsheet_id: str):
             except Exception:
                 row_count = 0
 
-            key_parts = []
+            identity_parts: list[str] = []
             for col_i, cell in enumerate(row):
                 if col_i == count_index:
                     continue
+                if col_i in optional_indices:
+                    continue
+                identity_parts.append(_normalize_key_cell(cell).lower())
 
-                cell_str = _normalize_key_cell(cell)
+            identity_key = tuple(identity_parts)
 
-                if length_index is not None and col_i == length_index:
-                    cell_str = _normalize_length(cell_str)
+            # Compute normalized optional values for compatibility checks
+            opt_norm: dict[int, str] = {
+                i: _norm_optional(i, row[i]) for i in optional_indices
+            }
 
-                # Normalize BPM for key comparisons (e.g., treat '100' and '100.0' as equal).
-                if bpm_index is not None and col_i == bpm_index:
-                    cell_str = _normalize_bpm(cell_str)
+            entries = identity_to_entries.setdefault(identity_key, [])
 
-                key_parts.append(cell_str)
+            matched_entry = None
+            for entry in entries:
+                entry_opt: dict[int, str] = entry["opt_norm"]
+                compatible = True
+                for i in optional_indices:
+                    a = entry_opt.get(i, "")
+                    b = opt_norm.get(i, "")
+                    if a and b and a != b:
+                        compatible = False
+                        break
+                if compatible:
+                    matched_entry = entry
+                    break
 
-            key = tuple(key_parts)
-
-            if key not in key_to_template:
-                key_to_template[key] = row.copy()
-                key_to_count[key] = row_count
+            if matched_entry is None:
+                # New distinct entry under this identity
+                template_row = row.copy()
+                # Ensure Count cell is string
+                template_row[count_index] = str(row_count)
+                entries.append(
+                    {
+                        "row": template_row,
+                        "count": row_count,
+                        "opt_norm": opt_norm,
+                    }
+                )
             else:
-                key_to_count[key] += row_count
+                # Merge into the matched entry
+                matched_entry["count"] += row_count
+                matched_entry["row"][count_index] = str(matched_entry["count"])
 
-        deduped_rows = []
+                # Fill missing optional values from incoming row (preserve original text)
+                for i in optional_indices:
+                    existing_norm = matched_entry["opt_norm"].get(i, "")
+                    incoming_norm = opt_norm.get(i, "")
+                    if not existing_norm and incoming_norm:
+                        matched_entry["opt_norm"][i] = incoming_norm
+                        if i < len(matched_entry["row"]) and i < len(row):
+                            matched_entry["row"][i] = row[i]
+
+        deduped_rows: list[list[str]] = []
         total_count_sum = 0
-        for key, template_row in key_to_template.items():
-            combined = template_row.copy()
-            combined[count_index] = str(key_to_count[key])
-            deduped_rows.append(combined)
-            total_count_sum += key_to_count[key]
+        for _, entries in identity_to_entries.items():
+            for entry in entries:
+                deduped_rows.append(entry["row"])
+                total_count_sum += entry["count"]
 
         log.debug(
             f"Sheet '{sheet_name}': original rows={len(rows)}, deduplicated rows={len(deduped_rows)}, total count={total_count_sum}"
