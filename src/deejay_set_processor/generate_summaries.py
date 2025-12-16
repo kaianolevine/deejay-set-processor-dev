@@ -5,7 +5,6 @@ import kaiano_common_utils.config as config
 import kaiano_common_utils.google_drive as google_drive
 import kaiano_common_utils.google_sheets as google_sheets
 import kaiano_common_utils.logger as log
-import kaiano_common_utils.sheets_formatting as format
 from googleapiclient.errors import HttpError
 
 import deejay_set_processor.deduplice_summary as deduplication
@@ -108,7 +107,6 @@ def generate_next_missing_summary():
             # Prefer the first match (Drive API ordering is typically most-recent first, but not guaranteed).
             existing_id = existing_summaries[0]["id"]
             deduplication.deduplicate_summary(existing_id)
-            format.apply_sheet_formatting(existing_id)
             continue
 
         log.debug(f"Getting files for year {year}")

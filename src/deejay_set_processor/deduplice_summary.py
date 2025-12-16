@@ -4,6 +4,7 @@ from typing import Any
 
 import kaiano_common_utils.google_sheets as google_sheets
 import kaiano_common_utils.logger as log
+import kaiano_common_utils.sheets_formatting as format
 
 
 def deduplicate_summary(spreadsheet_id: str):
@@ -171,6 +172,7 @@ def deduplicate_summary(spreadsheet_id: str):
             body=body,
         ).execute()
 
+    format.apply_sheet_formatting(spreadsheet_id)
     log.info(f"✅ Finished deduplicate_summary for spreadsheet: {spreadsheet_id}")
 
 
