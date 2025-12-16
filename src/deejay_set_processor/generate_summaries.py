@@ -108,6 +108,7 @@ def generate_next_missing_summary():
             # Prefer the first match (Drive API ordering is typically most-recent first, but not guaranteed).
             existing_id = existing_summaries[0]["id"]
             deduplication.deduplicate_summary(existing_id)
+            format.apply_sheet_formatting(existing_id)
             continue
 
         log.debug(f"Getting files for year {year}")
@@ -272,54 +273,6 @@ def generate_summary_for_folder(
         sheet_service, ss_id, "Summary", final_header, final_rows
     )
     log.debug("Summary data written to 'Summary' sheet.")
-
-    # Format the "Summary" sheet
-    log.info("Formatting 'Summary' sheet")
-    # Get sheet ID for "Summary"
-    spreadsheet = _safe_get_spreadsheet(
-        sheet_service, ss_id, fields="sheets(properties(sheetId,title))"
-    )
-    summary_sheet_id = None
-    for sheet in spreadsheet.get("sheets", []):
-        if sheet["properties"]["title"] == "Summary":
-            summary_sheet_id = sheet["properties"]["sheetId"]
-            break
-    if summary_sheet_id is None:
-        log.error('Sheet "Summary" not found in spreadsheet.')
-        return
-    # Set all cells (including header) to plain text format
-    format.set_number_format(
-        sheet_service,
-        ss_id,
-        summary_sheet_id,
-        1,
-        len(final_rows) + 1,
-        1,
-        len(final_header),
-        "TEXT",
-    )
-    # Set header row bold
-    format.set_bold_font(
-        sheet_service, ss_id, summary_sheet_id, 1, 1, 1, len(final_header)
-    )
-    # Freeze header row
-    format.freeze_rows(sheet_service, ss_id, summary_sheet_id, 1)
-    # Set horizontal alignment to left for all data
-    format.set_horizontal_alignment(
-        sheet_service,
-        ss_id,
-        summary_sheet_id,
-        1,
-        len(final_rows) + 1,
-        1,
-        len(final_header),
-        "LEFT",
-    )
-    # Auto resize columns and adjust width with max 200 pixels
-    format.auto_resize_columns(
-        sheet_service, ss_id, summary_sheet_id, 1, len(final_header)
-    )
-    log.info("Formatting of 'Summary' sheet complete.")
 
     # Copy the generated combined summary to the year summary name
     year_summary_id = copy_file(
