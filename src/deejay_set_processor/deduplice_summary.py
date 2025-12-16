@@ -194,7 +194,7 @@ def _apply_sheet_formatting_safe(spreadsheet_id: str) -> None:
         if hasattr(google_sheets, "get_gspread_client"):
             gc = google_sheets.get_gspread_client()
             gs_spreadsheet = gc.open_by_key(spreadsheet_id)
-            format.apply_sheet_formatting(gs_spreadsheet)
+            format.apply_formatting_to_sheet(gs_spreadsheet)
             return
 
         # Fallback: some versions expose `get_spreadsheet` / `open_spreadsheet` helpers.
@@ -202,15 +202,15 @@ def _apply_sheet_formatting_safe(spreadsheet_id: str) -> None:
             if hasattr(google_sheets, fn_name):
                 fn = getattr(google_sheets, fn_name)
                 gs_spreadsheet = fn(spreadsheet_id)
-                format.apply_sheet_formatting(gs_spreadsheet)
+                format.apply_formatting_to_sheet(gs_spreadsheet)
                 return
 
         log.warning(
-            "⚠️ Skipping apply_sheet_formatting: no gspread client helper found in kaiano_common_utils.google_sheets."
+            "⚠️ Skipping apply_formatting_to_sheet: no gspread client helper found in kaiano_common_utils.google_sheets."
         )
     except Exception as e:
         log.warning(
-            f"⚠️ apply_sheet_formatting failed (continuing without formatting): {e}"
+            f"⚠️ apply_formatting_to_sheet failed (continuing without formatting): {e}"
         )
 
 
