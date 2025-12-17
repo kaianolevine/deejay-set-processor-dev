@@ -6,6 +6,8 @@ on:
 jobs:
   retag:
     runs-on: ubuntu-latest
+    env:
+      GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
 
     steps:
       - name: Checkout repo
