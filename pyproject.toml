@@ -10,6 +10,7 @@ packages = [{ include = "deejay_set_processor", from = "src" }]
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 kaiano-common-utils = { git = "https://github.com/kaianolevine/kaiano-common-utils.git", branch = "main" }
+mutagen = "^1.47.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.2"

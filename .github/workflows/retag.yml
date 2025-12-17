@@ -1,0 +1,42 @@
+name: Retag audio from Drive (manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  retag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi
+
+      - name: Write Google credentials
+        run: |
+          mkdir -p .secrets
+          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > .secrets/google_credentials.json
+
+      - name: Run retag job
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: .secrets/google_credentials.json
+        run: |
+          poetry run python -m deejay_set_processor.retag_from_title
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retag-report
+          path: retag_report.csv
+          if-no-files-found: ignore
