@@ -318,6 +318,8 @@ def _find_column_index_ci(header: list[str], target: str) -> int | None:
 def _normalize_key_cell(value: Any) -> str:
     """Normalize cell text for deduplication key comparisons.
 
+    Accented characters are folded to their base letters (e.g., 'Beyoncé' == 'Beyonce').
+
     This is intentionally *more aggressive* than what we write back to the sheet.
     It strips invisible unicode format characters (e.g. zero-width space, BOM),
     normalizes unicode width/compat forms, and collapses whitespace.
@@ -336,7 +338,14 @@ def _normalize_key_cell(value: Any) -> str:
     try:
         import unicodedata
 
-        # Compatibility normalize (e.g. full-width → normal width)
+        # First decompose characters so accents become combining marks
+        # e.g. "é" -> "e" + "́"
+        s = unicodedata.normalize("NFKD", s)
+
+        # Remove combining marks (accents/diacritics)
+        s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+
+        # Re-compose to a stable form
         s = unicodedata.normalize("NFKC", s)
 
         # Remove invisible/format characters (category Cf), e.g. \u200b, \ufeff
