@@ -364,34 +364,54 @@ def _strip_cell_value(value: Any) -> str:
 
 
 def _normalize_length(value: str) -> str:
-    """Normalize length values so '2:52' and '02:52' are treated as equal.
+    """Normalize length values so equivalent time formats match (MM:SS and H:MM:SS).
 
-    Keeps data as plain text; only removes leading zeros from the minutes component
-    and zero-pads seconds to 2 digits when parseable.
+    Supports both MM:SS and H:MM:SS time formats and ignores leading zero hours for key comparisons.
+    Examples: '00:2:54' == '0:02:54' == '2:54'.
     """
     if value is None:
         return ""
+
     s = _normalize_key_cell(value)
     if not s:
         return ""
 
-    parts = s.split(":")
-    if len(parts) != 2:
-        # Not an MM:SS format; leave as-is.
+    parts = [p.strip() for p in s.split(":") if p.strip() != ""]
+
+    # Accept common formats:
+    # - MM:SS
+    # - H:MM:SS (or 0:MM:SS)
+    # We normalize to:
+    # - M:SS when hours == 0
+    # - H:MM:SS when hours > 0
+    if len(parts) == 2:
+        mm_raw, ss_raw = parts
+        try:
+            h = 0
+            m = int(mm_raw) if mm_raw else 0
+            sec = int(ss_raw) if ss_raw else 0
+        except Exception:
+            return s
+    elif len(parts) == 3:
+        hh_raw, mm_raw, ss_raw = parts
+        try:
+            h = int(hh_raw) if hh_raw else 0
+            m = int(mm_raw) if mm_raw else 0
+            sec = int(ss_raw) if ss_raw else 0
+        except Exception:
+            return s
+    else:
+        # Not a recognized time format; leave as-is.
         return s
 
-    mm_raw, ss_raw = parts[0].strip(), parts[1].strip()
-    try:
-        mm = int(mm_raw) if mm_raw else 0
-        ss = int(ss_raw) if ss_raw else 0
-    except Exception:
+    # Basic sanity checks
+    if h < 0 or m < 0 or sec < 0 or sec >= 60 or m >= 60:
         return s
 
-    # Clamp seconds to a sane range if someone wrote 60+; keep original if weird.
-    if ss < 0 or ss >= 60 or mm < 0:
-        return s
+    if h == 0:
+        return f"{m}:{sec:02d}"
 
-    return f"{mm}:{ss:02d}"
+    return f"{h}:{m:02d}:{sec:02d}"
 
 
 def _normalize_bpm(value: Any) -> str:
