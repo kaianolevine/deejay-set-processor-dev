@@ -123,7 +123,8 @@ def generate_dj_set_collection():
                 sheets_service, spreadsheet_id, name, [["Date", "Name", "Link"]] + rows
             )
             log.info(f"Setting column formatting for sheet '{name}'")
-            format.set_column_formatting(sheets_service, spreadsheet_id, name, 3)
+            format.apply_formatting_to_sheet(spreadsheet_id)
+            # format.set_column_formatting(sheets_service, spreadsheet_id, name, 3)
             tabs_to_add.append(name)
 
     # Clean up temp sheets if any
