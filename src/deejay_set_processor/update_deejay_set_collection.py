@@ -122,15 +122,15 @@ def generate_dj_set_collection():
             sheets.insert_rows(
                 sheets_service, spreadsheet_id, name, [["Date", "Name", "Link"]] + rows
             )
-            log.info(f"Setting column formatting for sheet '{name}'")
-            format.apply_formatting_to_sheet(spreadsheet_id)
-            # format.set_column_formatting(sheets_service, spreadsheet_id, name, 3)
             tabs_to_add.append(name)
 
     # Clean up temp sheets if any
     log.info(f"Deleting temp sheets: {config.TEMP_TAB_NAME} and 'Sheet1' if they exist")
     sheets.delete_sheet_by_name(sheets_service, spreadsheet_id, config.TEMP_TAB_NAME)
     sheets.delete_sheet_by_name(sheets_service, spreadsheet_id, "Sheet1")
+
+    log.info("Setting column formatting for spreadsheet")
+    format.apply_formatting_to_sheet(spreadsheet_id)
 
     # Reorder sheets: tabs_to_add then Summary
     log.info(f"Reordering sheets with order: {tabs_to_add + [config.SUMMARY_TAB_NAME]}")
