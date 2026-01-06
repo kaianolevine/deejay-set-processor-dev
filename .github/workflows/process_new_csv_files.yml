@@ -14,6 +14,7 @@ jobs:
   run-script:
     runs-on: ubuntu-latest
     env:
+      LOGGING_LEVEL: ${{ vars.LOGGING_LEVEL }}
       GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
 
     steps:
