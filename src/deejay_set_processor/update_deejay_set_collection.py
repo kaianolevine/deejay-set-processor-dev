@@ -62,7 +62,11 @@ def generate_dj_set_collection():
                 rows.append([f'=HYPERLINK("{file_url}", "{file_name}")', file_name])
             else:
                 date, title = helpers.extract_date_and_title(file_name)
-                rows.append([date, title, f'=HYPERLINK("{file_url}", "{file_name}")'])
+                date_cell = f"'{date}" if date else ""
+                title_cell = f"'{title}" if title else ""
+                rows.append(
+                    [date_cell, title_cell, f'=HYPERLINK("{file_url}", "{file_name}")']
+                )
 
         if name.lower() == "summary":
             if rows:
