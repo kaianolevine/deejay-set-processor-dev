@@ -204,11 +204,11 @@ def generate_summary_for_folder(
     g.sheets.clear_all_except_one_sheet(ss_id, "Summary")
 
     log.info(f"Writing summary data to 'Summary' sheet with {len(final_rows)} rows")
-    g.sheets.write_sheet_data(
+    rows_to_write = [final_header] + [list(r) for r in final_rows]
+    g.sheets.insert_rows(
         ss_id,
         "Summary",
-        final_header,
-        final_rows,  # type: ignore[arg-type]
+        rows_to_write,
         value_input_option="RAW",
     )
 
