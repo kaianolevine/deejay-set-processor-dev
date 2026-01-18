@@ -51,7 +51,7 @@ def generate_next_missing_summary() -> None:
             log.info(
                 f"✅ Summary already exists for {year} — running dedup on '{summary_name}' and continuing"
             )
-            deduplication.deduplicate_summary(canonical.id)
+            deduplication.deduplicate_summary(canonical.id, g=g)
             continue
 
         if existing_summaries:
@@ -228,7 +228,7 @@ def generate_summary_for_folder(
         f"Year summary spreadsheet ID with name '{summary_name}': {year_summary_id}"
     )
 
-    deduplication.deduplicate_summary(year_summary_id)
+    deduplication.deduplicate_summary(year_summary_id, g=g)
 
 
 if __name__ == "__main__":

@@ -8,9 +8,10 @@ from kaiano.google import GoogleAPI
 log = logger_mod.get_logger()
 
 
-def deduplicate_summary(spreadsheet_id: str):
+def deduplicate_summary(spreadsheet_id: str, g: GoogleAPI | None = None) -> None:
     log.info(f"🚀 Starting deduplicate_summary for spreadsheet: {spreadsheet_id}")
-    g = GoogleAPI.from_env()
+    if g is None:
+        g = GoogleAPI.from_env()
     fmt = g.sheets.formatter
     spreadsheet = g.sheets.get_metadata(
         spreadsheet_id, fields="sheets(properties(sheetId,title))"
