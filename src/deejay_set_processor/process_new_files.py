@@ -2,11 +2,10 @@ import os
 
 import kaiano.config as config
 import kaiano.helpers as helpers
-from kaiano import logger as log
+from kaiano import logger as logger_mod
 from kaiano.google import GoogleAPI
-from kaiano.google import sheets_formatting as formatting
 
-log = log.get_logger()
+log = logger_mod.get_logger()
 
 
 def normalize_prefixes_in_source(drive) -> None:
@@ -166,7 +165,7 @@ def process_csv_file(g: GoogleAPI, file_metadata: dict, year: str) -> None:
             temp_path, parent_id=year_folder_id
         )
         log.debug(f"Uploaded sheet ID: {sheet_id}")
-        formatting.apply_formatting_to_sheet(sheet_id)
+        g.sheets.formatter.apply_formatting_to_sheet(sheet_id)
         remove_summary_file_for_year(g, year)
 
         try:

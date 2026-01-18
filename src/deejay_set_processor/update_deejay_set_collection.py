@@ -2,16 +2,16 @@ from typing import List
 
 import kaiano.config as config
 import kaiano.helpers as helpers
-from kaiano import logger as log
+from kaiano import logger as logger_mod
 from kaiano.google import GoogleAPI
-from kaiano.google import sheets_formatting as format
 
-log = log.get_logger()
+log = logger_mod.get_logger()
 
 
 def generate_dj_set_collection():
     log.info("🚀 Starting generate_dj_set_collection")
     g = GoogleAPI.from_env()
+    fmt = g.sheets.formatter
 
     # Locate DJ_SETS folder (we assume the constant ID points to the shared drive folder or folder in shared drive)
     parent_folder_id = config.DJ_SETS_FOLDER_ID
@@ -93,7 +93,7 @@ def generate_dj_set_collection():
                 value_input_option="USER_ENTERED",
             )
             # Keep Date/Name as plain text; Link remains a formula.
-            format.set_column_text_formatting(g.sheets, spreadsheet_id, name, [0, 1])
+            fmt.set_column_text_formatting(spreadsheet_id, name, [0, 1])
             tabs_to_add.append(name)
 
     # Clean up temp sheets if any
@@ -102,13 +102,12 @@ def generate_dj_set_collection():
     g.sheets.delete_sheet_by_name(spreadsheet_id, "Sheet1")
 
     log.info("Setting column formatting for spreadsheet")
-    format.apply_formatting_to_sheet(spreadsheet_id)
+    fmt.apply_formatting_to_sheet(spreadsheet_id)
 
     # Reorder sheets: tabs_to_add then Summary
     log.info(f"Reordering sheets with order: {tabs_to_add + [config.SUMMARY_TAB_NAME]}")
     metadata = g.sheets.get_metadata(spreadsheet_id)
-    format.reorder_sheets(
-        g.sheets,
+    fmt.reorder_sheets(
         spreadsheet_id,
         tabs_to_add + [config.SUMMARY_TAB_NAME],
         metadata,

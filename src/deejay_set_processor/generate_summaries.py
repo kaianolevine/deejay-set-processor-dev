@@ -1,10 +1,10 @@
 import kaiano.config as config
-from kaiano import logger as log
+from kaiano import logger as logger_mod
 from kaiano.google import GoogleAPI
 
 import deejay_set_processor.deduplice_summary as deduplication
 
-log = log.get_logger()
+log = logger_mod.get_logger()
 
 
 def generate_next_missing_summary() -> None:
@@ -211,6 +211,10 @@ def generate_summary_for_folder(
         final_rows,  # type: ignore[arg-type]
         value_input_option="RAW",
     )
+
+    # Apply common formatting once the data is written.
+    fmt = g.sheets.formatter
+    fmt.apply_formatting_to_sheet(ss_id)
 
     # Copy the generated combined summary to the year summary name
     year_summary_id = g.drive.copy_file(

@@ -2,16 +2,16 @@ import argparse
 import sys
 from typing import Any
 
-from kaiano import logger as log
+from kaiano import logger as logger_mod
 from kaiano.google import GoogleAPI
-from kaiano.google import sheets_formatting as format
 
-log = log.get_logger()
+log = logger_mod.get_logger()
 
 
 def deduplicate_summary(spreadsheet_id: str):
     log.info(f"🚀 Starting deduplicate_summary for spreadsheet: {spreadsheet_id}")
     g = GoogleAPI.from_env()
+    fmt = g.sheets.formatter
     spreadsheet = g.sheets.get_metadata(
         spreadsheet_id, fields="sheets(properties(sheetId,title))"
     )
@@ -166,29 +166,12 @@ def deduplicate_summary(spreadsheet_id: str):
             spreadsheet_id, f"{sheet_name}!A1", final_data, value_input_option="RAW"
         )
 
-    log.info(f"✅ Starting apply_sheet_formatting for spreadsheet: {spreadsheet_id}")
-    _apply_sheet_formatting_safe(spreadsheet_id)
-    log.info(f"✅ Finished deduplicate_summary for spreadsheet: {spreadsheet_id}")
-
-
-# Helper for best-effort formatting via gspread
-def _apply_sheet_formatting_safe(spreadsheet_id: str) -> None:
-    """Best-effort formatting wrapper.
-
-    We keep deduplication fully functional even if formatting fails.
-    Prefer `kaiano.sheets_formatting.apply_formatting_to_sheet(spreadsheet_id)`,
-    which formats all worksheets in the spreadsheet.
-    """
+    log.info(f"✅ Applying formatting for spreadsheet: {spreadsheet_id}")
     try:
-        if hasattr(format, "apply_formatting_to_sheet"):
-            format.apply_formatting_to_sheet(spreadsheet_id)
-            return
-        # Back-compat: older utils may only expose apply_sheet_formatting(sheet_worksheet)
-        log.warning(
-            "⚠️ Skipping formatting: kaiano.sheets_formatting.apply_formatting_to_sheet is not available."
-        )
+        fmt.apply_formatting_to_sheet(spreadsheet_id)
     except Exception as e:
         log.warning(f"⚠️ Formatting failed (continuing without formatting): {e}")
+    log.info(f"✅ Finished deduplicate_summary for spreadsheet: {spreadsheet_id}")
 
 
 def _find_column_index_ci(header: list[str], target: str) -> int | None:
@@ -332,13 +315,6 @@ def _normalize_bpm(value: Any) -> str:
     # e.g. 100.50 -> '100.5'
     out = ("%f" % f).rstrip("0").rstrip(".")
     return out
-
-
-def rows_equal_except_count(row1, row2, count_index):
-    return all(
-        (i == count_index or (i < len(row1) and i < len(row2) and row1[i] == row2[i]))
-        for i in range(len(row1))
-    )
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
