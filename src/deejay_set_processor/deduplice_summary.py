@@ -1,110 +1,19 @@
 import argparse
-import random
 import sys
-import time
 from typing import Any
 
-import kaiano_common_utils.google_sheets as google_sheets
-import kaiano_common_utils.logger as log
-import kaiano_common_utils.sheets_formatting as format
-from googleapiclient.errors import HttpError
+from kaiano_common_utils import logger as log
+from kaiano_common_utils.google import GoogleAPI
+from kaiano_common_utils.google import sheets_formatting as format
 
-
-def _get_retry_after_seconds(http_error: HttpError) -> float | None:
-    """Best-effort parsing of Retry-After from a googleapiclient HttpError."""
-    try:
-        resp = getattr(http_error, "resp", None)
-        if resp is None:
-            return None
-        # googleapiclient uses httplib2.Response-like objects that support dict-style access
-        ra = None
-        try:
-            ra = resp.get("retry-after")
-        except Exception:
-            ra = getattr(resp, "get", lambda *_: None)("retry-after")
-        if not ra:
-            return None
-        return float(ra)
-    except Exception:
-        return None
-
-
-def _is_retryable_http_error(e: HttpError) -> bool:
-    """Return True if the HTTP error should be retried."""
-    try:
-        status = getattr(getattr(e, "resp", None), "status", None)
-        if status is None:
-            # Fallback: sometimes present as status_code
-            status = getattr(getattr(e, "resp", None), "status_code", None)
-        # Retry common transient/rate limit statuses
-        return status in (408, 429, 500, 502, 503, 504)
-    except Exception:
-        return False
-
-
-def _with_retry(
-    fn,
-    *,
-    desc: str,
-    max_attempts: int = 8,
-    base_delay_s: float = 1.5,
-    max_delay_s: float = 90.0,
-):
-    """Execute `fn()` with exponential backoff + jitter on retryable failures.
-
-    This is primarily to handle Google Sheets API rate limiting (HTTP 429) and other transient errors.
-    """
-    last_err: Exception | None = None
-    for attempt in range(1, max_attempts + 1):
-        try:
-            return fn()
-        except HttpError as e:
-            last_err = e
-            if not _is_retryable_http_error(e) or attempt == max_attempts:
-                raise
-
-            status = getattr(getattr(e, "resp", None), "status", "?")
-            retry_after = _get_retry_after_seconds(e)
-
-            # Exponential backoff with full jitter.
-            backoff = min(max_delay_s, base_delay_s * (2 ** (attempt - 1)))
-            # If server tells us when to retry, respect it.
-            if retry_after is not None:
-                backoff = max(backoff, retry_after)
-
-            sleep_s = backoff + random.uniform(0, min(1.0, backoff / 3))
-            log.warning(
-                f"⚠️ Retryable API error during {desc} (HTTP {status}). "
-                f"Attempt {attempt}/{max_attempts}; sleeping {sleep_s:.1f}s then retrying..."
-            )
-            time.sleep(sleep_s)
-        except Exception as e:
-            # Network-ish / transient failures that sometimes surface outside HttpError
-            last_err = e
-            if attempt == max_attempts:
-                raise
-            sleep_s = min(
-                max_delay_s, base_delay_s * (2 ** (attempt - 1))
-            ) + random.uniform(0, 1.0)
-            log.warning(
-                f"⚠️ Unexpected error during {desc}: {e}. "
-                f"Attempt {attempt}/{max_attempts}; sleeping {sleep_s:.1f}s then retrying..."
-            )
-            time.sleep(sleep_s)
-
-    # Should not be reachable, but keep mypy happy.
-    if last_err is not None:
-        raise last_err
+log = log.get_logger()
 
 
 def deduplicate_summary(spreadsheet_id: str):
     log.info(f"🚀 Starting deduplicate_summary for spreadsheet: {spreadsheet_id}")
-    sheets_service = google_sheets.get_sheets_service()
-    spreadsheet = _with_retry(
-        lambda: sheets_service.spreadsheets()
-        .get(spreadsheetId=spreadsheet_id, fields="sheets(properties(sheetId,title))")
-        .execute(),
-        desc=f"spreadsheets.get({spreadsheet_id})",
+    g = GoogleAPI.from_env()
+    spreadsheet = g.sheets.get_metadata(
+        spreadsheet_id, fields="sheets(properties(sheetId,title))"
     )
     sheets = spreadsheet.get("sheets", [])
 
@@ -114,12 +23,7 @@ def deduplicate_summary(spreadsheet_id: str):
         sheet_name = sheet_props["title"]
         log.debug(f"Processing sheet '{sheet_name}' (ID: {sheet_id})")
 
-        data = _with_retry(
-            lambda: google_sheets.get_sheet_values(
-                sheets_service, spreadsheet_id, sheet_name
-            ),
-            desc=f"get_sheet_values({sheet_name})",
-        )
+        data = g.sheets.read_values(spreadsheet_id, f"{sheet_name}!A:Z")
         if not data or len(data) < 2:
             log.warning(f"⚠️ Skipping empty or header-only sheet: {sheet_name}")
             continue
@@ -257,24 +161,9 @@ def deduplicate_summary(spreadsheet_id: str):
         )
 
         final_data = [header] + deduped_rows
-        _with_retry(
-            lambda: google_sheets.clear_sheet(
-                sheets_service, spreadsheet_id, sheet_name
-            ),
-            desc=f"clear_sheet({sheet_name})",
-        )
-        body = {"values": final_data}
-        _with_retry(
-            lambda: sheets_service.spreadsheets()
-            .values()
-            .update(
-                spreadsheetId=spreadsheet_id,
-                range=f"{sheet_name}!A1",
-                valueInputOption="RAW",
-                body=body,
-            )
-            .execute(),
-            desc=f"values.update({sheet_name})",
+        g.sheets.clear(spreadsheet_id, f"{sheet_name}!A:Z")
+        g.sheets.write_values(
+            spreadsheet_id, f"{sheet_name}!A1", final_data, value_input_option="RAW"
         )
 
     log.info(f"✅ Starting apply_sheet_formatting for spreadsheet: {spreadsheet_id}")
@@ -291,15 +180,9 @@ def _apply_sheet_formatting_safe(spreadsheet_id: str) -> None:
     which formats all worksheets in the spreadsheet.
     """
     try:
-        # kaiano_common_utils already knows how to open the spreadsheet and format all worksheets.
         if hasattr(format, "apply_formatting_to_sheet"):
-            _with_retry(
-                lambda: format.apply_formatting_to_sheet(spreadsheet_id),
-                desc=f"apply_formatting_to_sheet({spreadsheet_id})",
-                max_attempts=5,
-            )
+            format.apply_formatting_to_sheet(spreadsheet_id)
             return
-
         # Back-compat: older utils may only expose apply_sheet_formatting(sheet_worksheet)
         log.warning(
             "⚠️ Skipping formatting: kaiano_common_utils.sheets_formatting.apply_formatting_to_sheet is not available."

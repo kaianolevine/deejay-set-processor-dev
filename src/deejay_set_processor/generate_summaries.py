@@ -1,122 +1,60 @@
-import random
-import time
-
 import kaiano_common_utils.config as config
-import kaiano_common_utils.google_drive as google_drive
-import kaiano_common_utils.google_sheets as google_sheets
-import kaiano_common_utils.logger as log
-from googleapiclient.errors import HttpError
+from kaiano_common_utils import logger as log
+from kaiano_common_utils.google import GoogleAPI
 
 import deejay_set_processor.deduplice_summary as deduplication
 
 log = log.get_logger()
 
 
-def _safe_get_spreadsheet(sheet_service, spreadsheet_id, fields=None, max_retries=6):
-    """Get spreadsheet metadata with exponential backoff on transient errors."""
+def generate_next_missing_summary() -> None:
+    """Generate the next missing summary for a year."""
 
-    delay = 1.0
-    for attempt in range(max_retries):
-        try:
-            req = sheet_service.spreadsheets().get(spreadsheetId=spreadsheet_id)
-            if fields:
-                req = sheet_service.spreadsheets().get(
-                    spreadsheetId=spreadsheet_id, fields=fields
-                )
-            return req.execute()
-        except HttpError as e:
-            status = getattr(e.resp, "status", None)
-            # Retry on rate limits and transient service errors
-            if status in (429, 500, 503) or (
-                status == 403 and "quota" in str(e).lower()
-            ):
-                wait = delay * (0.7 + random.random() * 0.6)  # 0.7x–1.3x jitter
-                log.warning(
-                    f"⚠️ Retryable error {status} when fetching spreadsheet {spreadsheet_id}; retrying in {wait:.1f}s (attempt {attempt+1}/{max_retries})"
-                )
-                time.sleep(wait)
-                delay *= 2
-                continue
-            raise
-        except Exception:
-            # Non-HTTP errors: re-raise
-            raise
-    # If we exhausted retries, make one final attempt to raise the underlying error
-    return sheet_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-
-
-def retry_with_backoff(task_fn, max_retries=6, base_delay=1.0, task_description="task"):
-    for attempt in range(max_retries):
-        try:
-            return task_fn()
-        except HttpError as e:
-            status = getattr(e.resp, "status", None)
-            if status in (429, 500, 503) or (
-                status == 403 and "quota" in str(e).lower()
-            ):
-                delay = base_delay * (2**attempt)
-                wait = min(60.0, delay) * (0.7 + random.random() * 0.6)  # jitter + cap
-                log.warning(
-                    f"⚠️ Retryable HttpError {status} on {task_description}, retrying in {wait:.1f}s (attempt {attempt+1}/{max_retries})"
-                )
-                time.sleep(wait)
-                continue
-            raise
-        except Exception as e:
-            log.error(f"❌ Unexpected error on {task_description} – {e}")
-            if attempt >= 2:
-                raise
-            wait = base_delay * (2**attempt) + random.uniform(0, 0.5)
-            time.sleep(wait)
-    raise RuntimeError(f"Failed all retries for {task_description}")
-
-
-def generate_next_missing_summary():
-    """
-    Generate the next missing summary for a year, if not locked.
-    """
     log.info("🚀 Starting generate_next_missing_summary()")
-    drive_service = google_drive.get_drive_service()
-    sheet_service = google_sheets.get_sheets_service()
+    g = GoogleAPI.from_env()
 
-    summary_folder = google_drive.get_or_create_folder(
-        config.DJ_SETS_FOLDER_ID, config.SUMMARY_FOLDER_NAME, drive_service
+    summary_folder_id = g.drive.ensure_folder(
+        config.DJ_SETS_FOLDER_ID, config.SUMMARY_FOLDER_NAME
     )
-    log.debug(f"Summary folder: {summary_folder}")
+    log.debug(f"Summary folder: {summary_folder_id}")
 
-    year_folders = google_drive.get_files_in_folder(
-        drive_service,
+    year_folders = g.drive.list_files(
         config.DJ_SETS_FOLDER_ID,
         mime_type="application/vnd.google-apps.folder",
+        trashed=False,
+        include_folders=True,
     )
-    log.debug(f"Year folders found: {[f['name'] for f in year_folders]}")
+
+    log.debug(f"Year folders found: {[f.name for f in year_folders]}")
+
     for folder in year_folders:
-        year = folder["name"]
-        if year.lower() == "summary":
+        year = folder.name
+        if (year or "").lower() == "summary":
             continue
 
         summary_name = f"{year} Summary"
-        existing_summaries = google_drive.get_files_in_folder(
-            drive_service, summary_folder, name_contains=summary_name
+
+        # Find existing summaries for this year in the Summary folder (contains match)
+        all_summary_files = g.drive.list_files(
+            summary_folder_id, trashed=False, include_folders=False
         )
-        # `name_contains` can return multiple matches (e.g., "dedup_2018 Summary", "2018 Summary (Copy)", etc.).
-        # We only want to dedup the canonical "{year} Summary" file.
-        existing_names = [f.get("name", "") for f in existing_summaries]
+        existing_summaries = [
+            f for f in all_summary_files if f.name and summary_name in f.name
+        ]
+        existing_names = [f.name for f in existing_summaries]
         log.debug(f"Found existing summaries for {year}: {existing_names}")
 
         canonical = next(
-            (f for f in existing_summaries if f.get("name") == summary_name), None
+            (f for f in existing_summaries if f.name == summary_name), None
         )
         if canonical:
             log.info(
                 f"✅ Summary already exists for {year} — running dedup on '{summary_name}' and continuing"
             )
-            deduplication.deduplicate_summary(canonical["id"])
+            deduplication.deduplicate_summary(canonical.id)
             continue
 
         if existing_summaries:
-            # We found something that *contains* the name, but not the canonical one.
-            # This can happen if older runs left behind testing copies or dedup_* files.
             log.warning(
                 f"⚠️ Found summary-like files for {year} but no exact '{summary_name}' match. "
                 f"Skipping dedup to avoid modifying the wrong file. Matches: {existing_names}"
@@ -124,109 +62,97 @@ def generate_next_missing_summary():
             continue
 
         log.debug(f"Getting files for year {year}")
-        files = google_drive.get_files_in_folder(
-            drive_service,
-            folder["id"],
+        files = g.drive.list_files(
+            folder.id,
             mime_type="application/vnd.google-apps.spreadsheet",
+            trashed=False,
+            include_folders=False,
         )
+
         if any(
-            f["name"].startswith("FAILED_") or "_Cleaned" in f["name"] for f in files
+            (f.name or "").startswith("FAILED_") or "_Cleaned" in (f.name or "")
+            for f in files
         ):
             log.info(f"⛔ Skipping year {year} — unready files found")
             continue
 
-        log.debug(f"Files to process for {year}: {[f['name'] for f in files]}")
+        log.debug(f"Files to process for {year}: {[f.name for f in files]}")
         log.info(f"🔧 Generating summary for {year}...")
-        generate_summary_for_folder(
-            drive_service, sheet_service, files, summary_folder, year
-        )
+
+        generate_summary_for_folder(g, files, summary_folder_id, year)
 
 
 def generate_summary_for_folder(
-    drive_service, sheet_service, files, summary_folder_id, year
-):
+    g: GoogleAPI,
+    files,
+    summary_folder_id: str,
+    year: str,
+) -> None:
     log.debug(
         f"Starting generate_summary_for_folder for year {year} with {len(files)} files"
     )
+
     combined_name = f"_TestingOnly_{year}"
     summary_name = f"{year} Summary"
-    all_headers = set()
-    sheet_data = []
+
+    all_headers: set[str] = set()
+    sheet_data: list[tuple[list[str], list[list[str]]]] = []
 
     for f in files:
-        log.info(f"🔍 Reading {f['name']}")
-        try:
-            sheets_metadata = retry_with_backoff(
-                lambda: _safe_get_spreadsheet(
-                    sheet_service, f["id"], fields="sheets(properties(title))"
-                ),
-                task_description=f"fetching spreadsheet metadata for {f['name']}",
+        file_name = f.name or ""
+        log.info(f"🔍 Reading {file_name}")
+
+        sheets_metadata = g.sheets.get_metadata(
+            f.id, fields="sheets(properties(title))"
+        )
+
+        sheets = sheets_metadata.get("sheets", [])
+        if not sheets:
+            log.warning(
+                f"⚠️ No sheets found in spreadsheet {file_name} ({f.id}); skipping"
+            )
+            continue
+
+        for sheet in sheets:
+            sheet_title = sheet.get("properties", {}).get("title")
+            if not sheet_title:
+                log.debug(
+                    f"Skipping sheet with missing title in spreadsheet {file_name}"
+                )
+                continue
+
+            values = g.sheets.read_values(f.id, f"{sheet_title}!A:Z")
+
+            if not values or len(values) < 2:
+                log.warning(f"⚠️ No data in {file_name} - sheet '{sheet_title}'")
+                continue
+
+            header = values[0]
+            rows = values[1:]
+
+            lower_header = [(h or "").strip().lower() for h in header]
+            keep_indices = [
+                i for i, h in enumerate(lower_header) if h in config.ALLOWED_HEADERS
+            ]
+            if not keep_indices:
+                continue
+
+            filtered_header = [header[i] for i in keep_indices]
+            filtered_rows: list[list[str]] = []
+
+            for row in rows:
+                if not any((cell or "").strip() for cell in row):
+                    continue
+                padded = row + [""] * (max(keep_indices) + 1 - len(row))
+                filtered_rows.append([padded[i] for i in keep_indices])
+
+            log.debug(
+                f"Filtered header for sheet '{sheet_title}': {filtered_header}, rows: {len(filtered_rows)}"
             )
 
-            sheets = sheets_metadata.get("sheets", [])
-            if not sheets:
-                log.warning(
-                    f"⚠️ No sheets found in spreadsheet {f['name']} ({f['id']}); skipping"
-                )
-                continue
-
-            for sheet in sheets:
-                sheet_title = sheet.get("properties", {}).get("title")
-                if not sheet_title:
-                    log.debug(
-                        f"Skipping sheet with missing title in spreadsheet {f['name']}"
-                    )
-                    continue
-                values = retry_with_backoff(
-                    lambda: google_sheets.get_sheet_values(
-                        sheet_service, f["id"], sheet_title
-                    ),
-                    base_delay=2.0,
-                    task_description=f"reading sheet '{sheet_title}' in {f['name']}",
-                )
-
-                time.sleep(2)
-
-                if not values or len(values) < 2:
-                    log.warning(f"⚠️ No data in {f['name']} - sheet '{sheet_title}'")
-                    continue
-
-                header = values[0]
-                rows = values[1:]
-                lower_header = [h.strip().lower() for h in header]
-                keep_indices = [
-                    i for i, h in enumerate(lower_header) if h in config.ALLOWED_HEADERS
-                ]
-                if not keep_indices:
-                    continue
-                filtered_header = [header[i] for i in keep_indices]
-                filtered_rows = []
-                for row in rows:
-                    if not any((cell or "").strip() for cell in row):
-                        continue
-                    padded = row + [""] * (max(keep_indices) + 1 - len(row))
-                    filtered_rows.append([padded[i] for i in keep_indices])
-                log.debug(
-                    f"Filtered header for sheet '{sheet_title}': {filtered_header}, rows: {len(filtered_rows)}"
-                )
-                if filtered_rows:
-                    all_headers.update(filtered_header)
-                    sheet_data.append((filtered_header, filtered_rows))
-        except HttpError as e:
-            status = getattr(e.resp, "status", None)
-            # If we exhausted retries and still hit a transient error, skip this file and continue.
-            if status in (429, 500, 503) or (
-                status == 403 and "quota" in str(e).lower()
-            ):
-                log.error(
-                    f"⚠️ Skipping '{f['name']}' due to retryable HttpError {status} after retries – {e}"
-                )
-                continue
-            log.error(f"❌ Fatal HttpError accessing {f['name']} – {e}")
-            raise
-        except Exception as e:
-            log.error(f"❌ Fatal error accessing {f['name']} – {e}")
-            raise
+            if filtered_rows:
+                all_headers.update(filtered_header)
+                sheet_data.append((filtered_header, filtered_rows))
 
     if not sheet_data:
         log.info(f"📭 No valid data found in folder: {year}")
@@ -235,7 +161,8 @@ def generate_summary_for_folder(
     ordered_header = [col for col in config.desiredOrder if col in all_headers]
     unordered_header = [col for col in all_headers if col not in config.desiredOrder]
     final_header = ordered_header + unordered_header + ["Count"]
-    final_rows = []
+
+    final_rows: list[list[str | int]] = []
     for header, rows in sheet_data:
         idx_map = {h: i for i, h in enumerate(header)}
         for row in rows:
@@ -250,98 +177,40 @@ def generate_summary_for_folder(
 
     if "Title" in final_header:
         title_index = final_header.index("Title")
-        final_rows.sort(key=lambda r: r[title_index])
+        final_rows.sort(key=lambda r: str(r[title_index]))
     else:
-        final_rows.sort()
+        final_rows.sort(key=lambda r: [str(x) for x in r])
 
-    ss_id = google_drive.create_spreadsheet(
-        drive_service, name=combined_name, parent_folder_id=summary_folder_id
-    )
+    ss_id = g.drive.create_spreadsheet_in_folder(combined_name, summary_folder_id)
     log.debug(f"Created spreadsheet ID for {combined_name}: {ss_id}")
 
-    # Ensure a sheet named "Summary" exists
-    spreadsheet_info = _safe_get_spreadsheet(
-        sheet_service, ss_id, fields="sheets(properties(sheetId,title))"
-    )
-    sheets = spreadsheet_info.get("sheets", [])
-    found_summary = False
-    for sheet in sheets:
-        if sheet.get("properties", {}).get("title") == "Summary":
-            found_summary = True
-            break
-    if not found_summary and sheets:
-        # Rename the first sheet to "Summary"
-        first_sheet_id = sheets[0]["properties"]["sheetId"]
-        google_sheets.rename_sheet(sheet_service, ss_id, first_sheet_id, "Summary")
+    g.sheets.ensure_sheet_exists(ss_id, "Summary")
 
-    # Delete all sheets except "Summary"
     log.info(f"Deleting all sheets except 'Summary' in spreadsheet {ss_id}")
-    google_sheets.delete_all_sheets_except(sheet_service, ss_id, "Summary")
-    log.debug("All sheets except 'Summary' deleted.")
+    g.sheets.delete_all_sheets_except(ss_id, "Summary")
 
-    # Write summary data to "Summary" sheet
     log.info(f"Writing summary data to 'Summary' sheet with {len(final_rows)} rows")
-    google_sheets.write_sheet_data(
-        sheet_service, ss_id, "Summary", final_header, final_rows
+    g.sheets.write_sheet_data(
+        ss_id,
+        "Summary",
+        final_header,
+        final_rows,  # type: ignore[arg-type]
+        value_input_option="RAW",
     )
-    log.debug("Summary data written to 'Summary' sheet.")
 
     # Copy the generated combined summary to the year summary name
-    year_summary_id = copy_file(
-        drive_service, ss_id, summary_name, parent_folder_id=summary_folder_id
+    year_summary_id = g.drive.copy_file(
+        ss_id,
+        parent_folder_id=summary_folder_id,
+        name=summary_name,
     )
+
     log.info(f"Combined summary spreadsheet ID: {ss_id}")
     log.info(
         f"Year summary spreadsheet ID with name '{summary_name}': {year_summary_id}"
     )
 
-    # Run deduplication on the year summary spreadsheet
     deduplication.deduplicate_summary(year_summary_id)
-
-
-def copy_file(
-    drive_service, source_file_id: str, new_name: str, parent_folder_id: str = None
-) -> str:
-    """
-    Create a copy of a file in Google Drive with retries to handle propagation delay.
-    """
-    body = {"name": new_name}
-    if parent_folder_id:
-        body["parents"] = [parent_folder_id]
-
-    delay = 1.0
-    for attempt in range(5):
-        try:
-            log.info(
-                f"📄 Copying file {source_file_id} → '{new_name}' (attempt {attempt+1})"
-            )
-            copied_file = (
-                drive_service.files()
-                .copy(
-                    fileId=source_file_id,
-                    body=body,
-                    supportsAllDrives=True,
-                )
-                .execute()
-            )
-            new_file_id = copied_file.get("id")
-            log.info(f"✅ File copied successfully: {new_file_id}")
-            return new_file_id
-
-        except HttpError as e:
-            # File not found can happen immediately after creation due to propagation delay
-            status = getattr(e.resp, "status", None)
-            if status == 404 and "File not found" in str(e):
-                wait = delay + random.uniform(0, 0.5)
-                log.warning(
-                    f"⚠️ File {source_file_id} not yet visible, retrying in {wait:.1f}s (attempt {attempt+1}/5)"
-                )
-                time.sleep(wait)
-                delay *= 2
-                continue
-            raise
-
-    raise RuntimeError(f"Failed to copy file {source_file_id} after multiple retries")
 
 
 if __name__ == "__main__":
