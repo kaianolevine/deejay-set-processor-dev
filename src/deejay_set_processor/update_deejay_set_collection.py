@@ -75,6 +75,7 @@ def generate_dj_set_collection():
                     spreadsheet_id,
                     config.SUMMARY_TAB_NAME,
                     [["Link"]] + [[r[0]] for r in all_rows],
+                    value_input_option="USER_ENTERED",
                 )
         elif rows:
             rows.sort(key=lambda r: r[0], reverse=True)
@@ -85,7 +86,10 @@ def generate_dj_set_collection():
                 spreadsheet_id,
                 name,
                 [["Date", "Name", "Link"]] + rows,
+                value_input_option="USER_ENTERED",
             )
+            # Keep Date/Name as plain text; Link remains a formula.
+            format.set_column_text_formatting(g.sheets, spreadsheet_id, name, [0, 1])
             tabs_to_add.append(name)
 
     # Clean up temp sheets if any
