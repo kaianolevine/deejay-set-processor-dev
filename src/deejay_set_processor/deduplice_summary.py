@@ -28,7 +28,7 @@ def deduplicate_summary(spreadsheet_id: str):
             log.warning(f"⚠️ Skipping empty or header-only sheet: {sheet_name}")
             continue
 
-        header = data[0]
+        header = [_strip_cell_value(h) for h in data[0]]
         rows = data[1:]
 
         # Ensure 'Count' column exists (case-insensitive)
@@ -47,7 +47,7 @@ def deduplicate_summary(spreadsheet_id: str):
             elif len(row) > len(header):
                 row = row[: len(header)]
 
-            # Strip leading/trailing whitespace on ALL cells (this affects what we write back).
+            # Always strip leading/trailing whitespace on ALL cells to avoid whitespace-only duplicates.
             row = [_strip_cell_value(v) for v in row]
             rows[i] = row
 

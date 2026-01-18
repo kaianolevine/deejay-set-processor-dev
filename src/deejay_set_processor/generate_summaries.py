@@ -92,6 +92,12 @@ def generate_summary_for_folder(
         f"Starting generate_summary_for_folder for year {year} with {len(files)} files"
     )
 
+    def _trim_cell(v: str) -> str:
+        return str(v).strip() if v is not None else ""
+
+    def _canon_header(h: str) -> str:
+        return _trim_cell(h).lower()
+
     combined_name = f"_TestingOnly_{year}"
     summary_name = f"{year} Summary"
 
@@ -127,17 +133,18 @@ def generate_summary_for_folder(
                 log.warning(f"⚠️ No data in {file_name} - sheet '{sheet_title}'")
                 continue
 
-            header = values[0]
-            rows = values[1:]
+            header = [_trim_cell(h) for h in values[0]]
+            rows = [[_trim_cell(c) for c in r] for r in values[1:]]
 
-            lower_header = [(h or "").strip().lower() for h in header]
-            keep_indices = [
-                i for i, h in enumerate(lower_header) if h in config.ALLOWED_HEADERS
-            ]
+            lower_header = [_canon_header(h) for h in header]
+
+            allowed = {str(h).strip().lower() for h in config.ALLOWED_HEADERS}
+            keep_indices = [i for i, h in enumerate(lower_header) if h in allowed]
+
             if not keep_indices:
                 continue
 
-            filtered_header = [header[i] for i in keep_indices]
+            filtered_header = [lower_header[i] for i in keep_indices]
             filtered_rows: list[list[str]] = []
 
             for row in rows:
@@ -158,16 +165,22 @@ def generate_summary_for_folder(
         log.info(f"📭 No valid data found in folder: {year}")
         return
 
-    ordered_header = [col for col in config.desiredOrder if col in all_headers]
-    unordered_header = [col for col in all_headers if col not in config.desiredOrder]
-    final_header = ordered_header + unordered_header + ["Count"]
+    desired_display = [str(c).strip() for c in config.desiredOrder]
+    desired_canon = [_canon_header(c) for c in desired_display]
+    desired_map = {c: d for c, d in zip(desired_canon, desired_display)}
+
+    ordered_header = [c for c in desired_canon if c in all_headers]
+    unordered_header = sorted([c for c in all_headers if c not in set(desired_canon)])
+
+    final_header_canon = ordered_header + unordered_header
+    final_header = [desired_map.get(c, c) for c in final_header_canon] + ["Count"]
 
     final_rows: list[list[str | int]] = []
     for header, rows in sheet_data:
         idx_map = {h: i for i, h in enumerate(header)}
         for row in rows:
             aligned = [
-                row[idx_map[h]] if h in idx_map else "" for h in final_header[:-1]
+                row[idx_map[h]] if h in idx_map else "" for h in final_header_canon
             ]
             final_rows.append(aligned + [1])
 
@@ -175,8 +188,9 @@ def generate_summary_for_folder(
         f"Final header for year {year}: {final_header}, total rows: {len(final_rows)}"
     )
 
-    if "Title" in final_header:
-        title_index = final_header.index("Title")
+    title_canon = _canon_header("Title")
+    if title_canon in final_header_canon:
+        title_index = final_header_canon.index(title_canon)
         final_rows.sort(key=lambda r: str(r[title_index]))
     else:
         final_rows.sort(key=lambda r: [str(x) for x in r])

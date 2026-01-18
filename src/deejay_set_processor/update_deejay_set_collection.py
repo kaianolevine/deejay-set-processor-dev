@@ -43,7 +43,7 @@ def generate_dj_set_collection():
             log.info(f"⏭️ Skipping folder: {name} (archive folder)")
             continue
 
-        files = g.drive.get_files_in_folder(folder_id, include_folders=True)
+        files = g.drive.get_files_in_folder(folder_id, include_folders=False)
         log.debug(f"Found {len(files)} files in folder '{name}'")
         rows = []
 
@@ -55,15 +55,18 @@ def generate_dj_set_collection():
                 f"Processing file: Name='{file_name}', MIME='{mime_type}', URL='{file_url}'"
             )
 
+            if mime_type != "application/vnd.google-apps.spreadsheet":
+                continue
+
             if name.lower() == "summary":
-                rows.append([f'=HYPERLINK("{file_url}", "{file_name}")'])
+                rows.append([f'=HYPERLINK("{file_url}", "{file_name}")', file_name])
             else:
                 date, title = helpers.extract_date_and_title(file_name)
                 rows.append([date, title, f'=HYPERLINK("{file_url}", "{file_name}")'])
 
         if name.lower() == "summary":
             if rows:
-                all_rows = sorted(rows, key=lambda r: r[0], reverse=True)
+                all_rows = sorted(rows, key=lambda r: r[1], reverse=True)
                 log.debug(f"Adding Summary sheet with {len(all_rows)} rows")
                 # add Summary sheet
                 log.info("➕ Adding Summary sheet")
@@ -71,13 +74,8 @@ def generate_dj_set_collection():
                 g.sheets.insert_rows(
                     spreadsheet_id,
                     config.SUMMARY_TAB_NAME,
-                    [["Link"]] + all_rows,
+                    [["Link"]] + [[r[0]] for r in all_rows],
                 )
-                # Force plain text formatting for the first column to prevent Google Sheets from converting year numbers (e.g., 2025) into dates like 1905-07-17
-                format.set_column_text_formatting(
-                    g.sheets, spreadsheet_id, config.SUMMARY_TAB_NAME, [0]
-                )
-                log.info("Setting column formatting for Summary sheet")
         elif rows:
             rows.sort(key=lambda r: r[0], reverse=True)
             log.debug(f"Adding sheet for folder '{name}' with {len(rows)} rows")
