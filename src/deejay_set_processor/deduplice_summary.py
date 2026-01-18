@@ -2,9 +2,9 @@ import argparse
 import sys
 from typing import Any
 
-from kaiano_common_utils import logger as log
-from kaiano_common_utils.google import GoogleAPI
-from kaiano_common_utils.google import sheets_formatting as format
+from kaiano import logger as log
+from kaiano.google import GoogleAPI
+from kaiano.google import sheets_formatting as format
 
 log = log.get_logger()
 
@@ -176,7 +176,7 @@ def _apply_sheet_formatting_safe(spreadsheet_id: str) -> None:
     """Best-effort formatting wrapper.
 
     We keep deduplication fully functional even if formatting fails.
-    Prefer `kaiano_common_utils.sheets_formatting.apply_formatting_to_sheet(spreadsheet_id)`,
+    Prefer `kaiano.sheets_formatting.apply_formatting_to_sheet(spreadsheet_id)`,
     which formats all worksheets in the spreadsheet.
     """
     try:
@@ -185,7 +185,7 @@ def _apply_sheet_formatting_safe(spreadsheet_id: str) -> None:
             return
         # Back-compat: older utils may only expose apply_sheet_formatting(sheet_worksheet)
         log.warning(
-            "⚠️ Skipping formatting: kaiano_common_utils.sheets_formatting.apply_formatting_to_sheet is not available."
+            "⚠️ Skipping formatting: kaiano.sheets_formatting.apply_formatting_to_sheet is not available."
         )
     except Exception as e:
         log.warning(f"⚠️ Formatting failed (continuing without formatting): {e}")

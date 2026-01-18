@@ -56,7 +56,7 @@ kaiano-common-utils = { git = "https://github.com/kaianolevine/kaiano-common-uti
 
 Example usage:
 ```python
-from kaiano_common_utils import helpers
+from kaiano import helpers
 ```
 
 ---

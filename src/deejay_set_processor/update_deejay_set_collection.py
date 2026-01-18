@@ -1,10 +1,10 @@
 from typing import List
 
-import kaiano_common_utils.config as config
-import kaiano_common_utils.helpers as helpers
-from kaiano_common_utils import logger as log
-from kaiano_common_utils.google import GoogleAPI
-from kaiano_common_utils.google import sheets_formatting as format
+import kaiano.config as config
+import kaiano.helpers as helpers
+from kaiano import logger as log
+from kaiano.google import GoogleAPI
+from kaiano.google import sheets_formatting as format
 
 log = log.get_logger()
 

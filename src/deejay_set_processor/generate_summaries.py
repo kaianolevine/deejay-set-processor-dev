@@ -1,6 +1,6 @@
-import kaiano_common_utils.config as config
-from kaiano_common_utils import logger as log
-from kaiano_common_utils.google import GoogleAPI
+import kaiano.config as config
+from kaiano import logger as log
+from kaiano.google import GoogleAPI
 
 import deejay_set_processor.deduplice_summary as deduplication
 
