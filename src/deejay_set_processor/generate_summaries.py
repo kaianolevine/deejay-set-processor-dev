@@ -2,7 +2,7 @@ import kaiano.config as config
 from kaiano import logger as logger_mod
 from kaiano.google import GoogleAPI
 
-import deejay_set_processor.deduplice_summary as deduplication
+import deejay_set_processor.deduplicate_summary as deduplication
 
 log = logger_mod.get_logger()
 
