@@ -201,7 +201,7 @@ def generate_summary_for_folder(
     g.sheets.ensure_sheet_exists(ss_id, "Summary")
 
     log.info(f"Deleting all sheets except 'Summary' in spreadsheet {ss_id}")
-    g.sheets.delete_all_sheets_except(ss_id, "Summary")
+    g.sheets.clear_all_except_one_sheet(ss_id, "Summary")
 
     log.info(f"Writing summary data to 'Summary' sheet with {len(final_rows)} rows")
     g.sheets.write_sheet_data(
