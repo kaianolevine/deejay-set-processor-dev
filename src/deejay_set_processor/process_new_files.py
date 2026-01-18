@@ -1,153 +1,179 @@
 import os
 
 import kaiano_common_utils.config as config
-import kaiano_common_utils.google_drive as google_api
-import kaiano_common_utils.sheets_formatting as formatting
+import kaiano_common_utils.helpers as helpers
 from kaiano_common_utils import logger as log
-
-import deejay_set_processor.helpers as helpers
+from kaiano_common_utils.google import GoogleAPI
+from kaiano_common_utils.google import sheets_formatting as formatting
 
 log = log.get_logger()
 
 
-# --- Utility: remove summary file for a given year ---
-def remove_summary_file_for_year(drive, year):
+def normalize_prefixes_in_source(drive) -> None:
+    """Remove leading status prefixes from files in the CSV source folder.
+
+    If a file name starts with 'FAILED_', 'possible_duplicate_', or 'Copy of ' (case-insensitive),
+    this will attempt to rename it to the stripped base name, but only if that target name does
+    not already exist in the source folder.
+
+    This function expects the new Drive facade / DriveFacade interface.
+    """
+
+    FAILED_PREFIX = "FAILED_"
+    POSSIBLE_DUPLICATE_PREFIX = "possible_duplicate_"
+    COPY_OF_PREFIX = "Copy of "
+
     try:
-        summary_folder_id = google_api.get_or_create_folder(
-            config.DJ_SETS_FOLDER_ID, "Summary", drive
+        log.debug("normalize_prefixes_in_source: listing source folder files")
+        files = drive.list_files(
+            config.CSV_SOURCE_FOLDER_ID, include_folders=False, trashed=False
         )
-        summary_query = f"name = '{year} Summary' and '{summary_folder_id}' in parents and trashed = false"
-        summary_resp = (
-            drive.files()
-            .list(
-                q=summary_query,
-                spaces="drive",
-                fields="files(id, name)",
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True,
-            )
-            .execute()
+        log.info(f"normalize_prefixes_in_source: found {len(files)} files to inspect")
+
+        # Build a quick lookup of names already present in the folder
+        existing_names = {f.name for f in files if f.name}
+
+        for f in files:
+            original_name = f.name or ""
+            lower = original_name.lower()
+            prefix = None
+
+            if lower.startswith(FAILED_PREFIX.lower()):
+                prefix = original_name[: len(FAILED_PREFIX)]
+            elif lower.startswith(POSSIBLE_DUPLICATE_PREFIX.lower()):
+                prefix = original_name[: len(POSSIBLE_DUPLICATE_PREFIX)]
+            elif lower.startswith(COPY_OF_PREFIX.lower()):
+                prefix = original_name[: len(COPY_OF_PREFIX)]
+
+            if not prefix:
+                continue
+
+            new_name = original_name[len(prefix) :]
+            if not new_name:
+                log.warning(
+                    f"normalize_prefixes_in_source: derived empty new name for {original_name}, skipping"
+                )
+                continue
+
+            if new_name in existing_names:
+                log.info(
+                    f"normalize_prefixes_in_source: target name '{new_name}' already exists in source folder — leaving '{original_name}' as-is"
+                )
+                continue
+
+            try:
+                log.info(
+                    f"normalize_prefixes_in_source: renaming '{original_name}' -> '{new_name}'"
+                )
+                drive.rename_file(f.id, new_name)
+                # Keep our local set consistent for subsequent checks in this run
+                existing_names.discard(original_name)
+                existing_names.add(new_name)
+            except Exception as e:
+                log.error(
+                    f"normalize_prefixes_in_source: failed to rename {original_name}: {e}"
+                )
+
+    except Exception as e:
+        log.error(f"normalize_prefixes_in_source: unexpected error: {e}")
+
+
+# --- Utility: remove summary file for a given year ---
+def remove_summary_file_for_year(g: GoogleAPI, year: str) -> None:
+    try:
+        summary_folder_id = g.drive.ensure_folder(config.DJ_SETS_FOLDER_ID, "Summary")
+        summary_name = f"{year} Summary"
+
+        # List files in the Summary folder and delete any exact name matches
+        files = g.drive.list_files(
+            summary_folder_id, include_folders=False, trashed=False
         )
-        summary_files = summary_resp.get("files", [])
-        for summary_file in summary_files:
-            drive.files().delete(
-                fileId=summary_file["id"], supportsAllDrives=True
-            ).execute()
-            log.info(
-                f"🗑️ Deleted existing summary file '{summary_file.get('name')}' for year {year}"
-            )
+        for f in files:
+            if (f.name or "") == summary_name:
+                g.drive.delete_file(f.id)
+                log.info(
+                    f"🗑️ Deleted existing summary file '{summary_name}' for year {year}"
+                )
     except Exception as e:
         log.error(f"Failed to remove summary file for year {year}: {e}")
 
 
 # --- Utility: check for duplicate base filename in a folder ---
-def file_exists_with_base_name(drive, folder_id, base_name):
+def file_exists_with_base_name(g: GoogleAPI, folder_id: str, base_name: str) -> bool:
     try:
-        resp = (
-            drive.files()
-            .list(
-                q=f"'{folder_id}' in parents and trashed = false",
-                spaces="drive",
-                fields="files(id, name)",
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True,
-            )
-            .execute()
-        )
-        candidates = resp.get("files", [])
+        candidates = g.drive.list_files(folder_id, include_folders=False, trashed=False)
         for f in candidates:
-            if os.path.splitext(f.get("name", ""))[0] == base_name:
+            if os.path.splitext(f.name or "")[0] == base_name:
                 return True
     except Exception as e:
         log.error(f"Error checking for duplicates in folder {folder_id}: {e}")
     return False
 
 
-def rename_file_as_duplicate(drive, file_id, filename):
+def rename_file_as_duplicate(g: GoogleAPI, file_id: str, filename: str) -> None:
     try:
         new_name = f"possible_duplicate_{filename}"
-        drive.files().update(
-            fileId=file_id, body={"name": new_name}, supportsAllDrives=True
-        ).execute()
+        g.drive.rename_file(file_id, new_name)
         log.info(f"✏️ Renamed original to '{new_name}'")
     except Exception as rename_exc:
         log.error(f"Failed to rename original to possible_duplicate_: {rename_exc}")
 
 
-def process_non_csv_file(drive, file_metadata, year):
+def process_non_csv_file(g: GoogleAPI, file_metadata: dict, year: str) -> None:
+    global non_csv_count
     filename = file_metadata["name"]
     file_id = file_metadata["id"]
     log.info(f"\n📄 Moving non-CSV file that starts with year: {filename}")
     try:
-        year_folder_id = google_api.get_or_create_folder(
-            config.DJ_SETS_FOLDER_ID, year, drive
-        )
+        year_folder_id = g.drive.ensure_folder(config.DJ_SETS_FOLDER_ID, year)
         base_name = os.path.splitext(filename)[0]
-        if file_exists_with_base_name(drive, year_folder_id, base_name):
-            rename_file_as_duplicate(drive, file_id, filename)
-            global non_csv_count
+        if file_exists_with_base_name(g, year_folder_id, base_name):
+            rename_file_as_duplicate(g, file_id, filename)
             non_csv_count += 1
             return
 
-        drive.files().update(
-            fileId=file_id,
-            addParents=year_folder_id,
-            removeParents=config.CSV_SOURCE_FOLDER_ID,
-            supportsAllDrives=True,
-        ).execute()
+        g.drive.move_file(
+            file_id, new_parent_id=year_folder_id, remove_from_parents=True
+        )
         log.info(f"📦 Moved original file to {year} subfolder: {filename}")
-        remove_summary_file_for_year(drive, year)
+        remove_summary_file_for_year(g, year)
         non_csv_count += 1
     except Exception as e:
         log.error(f"Failed to move non-CSV file {filename}: {e}")
 
 
-def process_csv_file(drive, file_metadata, year):
+def process_csv_file(g: GoogleAPI, file_metadata: dict, year: str) -> None:
     filename = file_metadata["name"]
     file_id = file_metadata["id"]
     log.info(f"\n🚧 Processing: {filename}")
     temp_path = os.path.join("/tmp", filename)
 
     try:
-        google_api.download_file(drive, file_id, temp_path)
+        g.drive.download_file(file_id, temp_path)
         helpers.normalize_csv(temp_path)
         log.info(f"Downloaded and normalized file: {filename}")
 
-        year_folder_id = google_api.get_or_create_folder(
-            config.DJ_SETS_FOLDER_ID, year, drive
-        )
+        year_folder_id = g.drive.ensure_folder(config.DJ_SETS_FOLDER_ID, year)
         base_name = os.path.splitext(filename)[0]
-        if file_exists_with_base_name(drive, year_folder_id, base_name):
+        if file_exists_with_base_name(g, year_folder_id, base_name):
             log.warning(
                 f"⚠️ Destination already contains file with base name '{base_name}' in year folder {year_folder_id}. Marking original as possible duplicate and skipping."
             )
-            try:
-                new_name = f"possible_duplicate_{filename}"
-                drive.files().update(
-                    fileId=file_id, body={"name": new_name}, supportsAllDrives=True
-                ).execute()
-                log.info(f"✏️ Renamed original to '{new_name}'")
-            except Exception as rename_exc:
-                log.error(
-                    f"Failed to rename original to possible_duplicate_: {rename_exc}"
-                )
+            rename_file_as_duplicate(g, file_id, filename)
             return
 
-        sheet_id = google_api.upload_to_drive(drive, temp_path, year_folder_id)
+        sheet_id = g.drive.upload_csv_as_google_sheet(
+            temp_path, parent_id=year_folder_id
+        )
         log.debug(f"Uploaded sheet ID: {sheet_id}")
         formatting.apply_formatting_to_sheet(sheet_id)
-        remove_summary_file_for_year(drive, year)
+        remove_summary_file_for_year(g, year)
 
         try:
-            archive_folder_id = google_api.get_or_create_folder(
-                year_folder_id, "Archive", drive
+            archive_folder_id = g.drive.ensure_folder(year_folder_id, "Archive")
+            g.drive.move_file(
+                file_id, new_parent_id=archive_folder_id, remove_from_parents=True
             )
-            drive.files().update(
-                fileId=file_id,
-                addParents=archive_folder_id,
-                removeParents=config.CSV_SOURCE_FOLDER_ID,
-                supportsAllDrives=True,
-            ).execute()
             log.info(f"📦 Moved original file to Archive subfolder: {filename}")
         except Exception as move_exc:
             log.error(f"Failed to move original file to Archive subfolder: {move_exc}")
@@ -156,9 +182,7 @@ def process_csv_file(drive, file_metadata, year):
         log.error(f"❌ Failed to upload or format {filename}: {e}")
         try:
             failed_name = f"FAILED_{filename}"
-            drive.files().update(
-                fileId=file_id, body={"name": failed_name}, supportsAllDrives=True
-            ).execute()
+            g.drive.rename_file(file_id, failed_name)
             log.info(f"✏️ Renamed original to '{failed_name}'")
         except Exception as rename_exc:
             log.error(f"Failed to rename original to FAILED_: {rename_exc}")
@@ -173,12 +197,15 @@ def process_csv_file(drive, file_metadata, year):
 # === MAIN ===
 def main():
     log.info("Starting main process")
-    drive = google_api.get_drive_service()
+    g = GoogleAPI.from_env()
 
     # Normalize any leftover status prefixes before processing
-    helpers.normalize_prefixes_in_source(drive)
+    normalize_prefixes_in_source(g.drive)
 
-    files = google_api.list_files_in_folder(drive, config.CSV_SOURCE_FOLDER_ID)
+    files = g.drive.list_files(
+        config.CSV_SOURCE_FOLDER_ID, include_folders=False, trashed=False
+    )
+    files = [{"id": f.id, "name": f.name} for f in files]
     log.info(f"Found {len(files)} files in source folder")
 
     global csv_count, non_csv_count, skipped_count
@@ -198,12 +225,12 @@ def main():
 
         # If the file is not a CSV but starts with a year, move it straight to the year folder
         if not filename.lower().endswith(".csv"):
-            process_non_csv_file(drive, file_metadata, year)
+            process_non_csv_file(g, file_metadata, year)
             continue
 
         # At this point we only process CSVs
         csv_count += 1
-        process_csv_file(drive, file_metadata, year)
+        process_csv_file(g, file_metadata, year)
 
     log.info(
         f"✅ Done: {csv_count} CSVs, {non_csv_count} non-CSV files, {skipped_count} skipped."
