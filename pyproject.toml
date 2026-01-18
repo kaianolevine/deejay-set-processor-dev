@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "deejay_set_processor"
-version = "0.0.61"
+version = "0.0.62"
 description = "Starter template for Kaiano's Python projects with CI, pre-commit, coverage, and shared utils."
 authors = ["Kaiano Levine <kaiano@example.com>"]
 license = "MIT"
