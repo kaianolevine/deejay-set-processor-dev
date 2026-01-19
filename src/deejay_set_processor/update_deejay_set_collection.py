@@ -1,7 +1,7 @@
-from typing import List
+import re
+from typing import List, Tuple
 
 import kaiano.config as config
-import kaiano.helpers as helpers
 from kaiano import logger as logger_mod
 from kaiano.google import GoogleAPI
 
@@ -61,7 +61,7 @@ def generate_dj_set_collection():
             if name.lower() == "summary":
                 rows.append([f'=HYPERLINK("{file_url}", "{file_name}")', file_name])
             else:
-                date, title = helpers.extract_date_and_title(file_name)
+                date, title = _extract_date_and_title(file_name)
                 date_cell = f"'{date}" if date else ""
                 title_cell = f"'{title}" if title else ""
                 rows.append(
@@ -114,6 +114,15 @@ def generate_dj_set_collection():
     )
     log.info("Completed reordering sheets")
     log.info("✅ Finished generate_dj_set_collection")
+
+
+def _extract_date_and_title(file_name: str) -> Tuple[str, str]:
+    match = re.match(r"^(\d{4}-\d{2}-\d{2})(.*)", file_name)
+    if not match:
+        return ("", file_name)
+    date = match[1]
+    title = match[2].lstrip("-_ ")
+    return (date, title)
 
 
 if __name__ == "__main__":

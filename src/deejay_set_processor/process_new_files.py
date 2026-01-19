@@ -1,7 +1,7 @@
 import os
+import re
 
 import kaiano.config as config
-import kaiano.helpers as helpers
 from kaiano import logger as logger_mod
 from kaiano.google import GoogleAPI
 
@@ -149,7 +149,7 @@ def process_csv_file(g: GoogleAPI, file_metadata: dict, year: str) -> None:
 
     try:
         g.drive.download_file(file_id, temp_path)
-        helpers.normalize_csv(temp_path)
+        _normalize_csv(temp_path)
         log.info(f"Downloaded and normalized file: {filename}")
 
         year_folder_id = g.drive.ensure_folder(config.DJ_SETS_FOLDER_ID, year)
@@ -193,6 +193,27 @@ def process_csv_file(g: GoogleAPI, file_metadata: dict, year: str) -> None:
                 pass
 
 
+def _extract_year_from_filename(filename: str) -> str | None:
+    log.debug(f"extract_year_from_filename called with filename: {filename}")
+    match = re.match(r"(\d{4})[-_]", filename)
+    year = match.group(1) if match else None
+    log.debug(f"Extracted year: {year} from filename: {filename}")
+    return year
+
+
+def _normalize_csv(file_path: str) -> None:
+    log.debug(f"normalize_csv called with file_path: {file_path} - reading file")
+    with open(file_path, "r") as f:
+        lines = f.readlines()
+    cleaned_lines = [
+        re.sub(r"\s+", " ", line).strip() for line in lines if line.strip()
+    ]
+    log.debug(f"Lines after cleaning: {len(cleaned_lines)}")
+    with open(file_path, "w") as f:
+        f.write("\n".join(cleaned_lines))
+    log.debug(f"✅ Normalized: {file_path}")
+
+
 # === MAIN ===
 def main():
     log.info("Starting main process")
@@ -216,7 +237,7 @@ def main():
         filename = file_metadata["name"]
         log.debug(f"Processing file: {filename}")
 
-        year = helpers.extract_year_from_filename(filename)
+        year = _extract_year_from_filename(filename)
         if not year:
             log.warning(f"⚠️ Skipping unrecognized filename format: {filename}")
             skipped_count += 1
