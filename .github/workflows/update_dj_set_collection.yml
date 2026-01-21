@@ -10,16 +10,20 @@ concurrency:
   group: dj-set-collection
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   run-script:
     runs-on: ubuntu-latest
     env:
       LOGGING_LEVEL: ${{ vars.LOGGING_LEVEL }}
       GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+      # Also required: WEBSITE_REPO_TOKEN (fine-grained PAT with Contents: Read/Write on kaianolevine/website-sandbox)
       
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -34,3 +38,24 @@ jobs:
 
       - name: Run create_dj_set_collection
         run: poetry run python -u src/deejay_set_processor/update_deejay_set_collection.py
+
+      - name: Checkout website repo
+        uses: actions/checkout@v4
+        with:
+          repository: kaianolevine/website-sandbox
+          path: website
+          token: ${{ secrets.WEBSITE_REPO_TOKEN }}
+
+      - name: Copy JSON snapshot into website repo
+        run: |
+          mkdir -p website/site_data
+          cp -f site_data/deejay_set_collection.json website/site_data/deejay_set_collection.json
+
+      - name: Commit and push website repo (if changed)
+        run: |
+          cd website
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add site_data/deejay_set_collection.json
+          git diff --cached --quiet || git commit -m "Update DJ set collection JSON"
+          git push

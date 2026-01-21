@@ -1,4 +1,7 @@
+import json
+import os
 import re
+from datetime import datetime, timezone
 from typing import List, Tuple
 
 import kaiano.config as config
@@ -34,6 +37,13 @@ def generate_dj_set_collection():
 
     tabs_to_add: List[str] = []
 
+    # Build a JSON snapshot alongside the Google Sheet output.
+    collection_snapshot = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "dj_sets_folder_id": parent_folder_id,
+        "folders": [],
+    }
+
     for folder in subfolders:
         name = folder.name
         folder_id = folder.id
@@ -42,6 +52,13 @@ def generate_dj_set_collection():
         if name.lower() == "archive":
             log.info(f"⏭️ Skipping folder: {name} (archive folder)")
             continue
+
+        folder_snapshot = {
+            "name": name,
+            "folder_id": folder_id,
+            "items": [],
+        }
+        collection_snapshot["folders"].append(folder_snapshot)
 
         files = g.drive.get_files_in_folder(folder_id, include_folders=False)
         log.debug(f"Found {len(files)} files in folder '{name}'")
@@ -59,9 +76,25 @@ def generate_dj_set_collection():
                 continue
 
             if name.lower() == "summary":
+                folder_snapshot["items"].append(
+                    {
+                        "label": file_name,
+                        "url": file_url,
+                        "spreadsheet_id": f.id,
+                    }
+                )
                 rows.append([f'=HYPERLINK("{file_url}", "{file_name}")', file_name])
             else:
                 date, title = _extract_date_and_title(file_name)
+                folder_snapshot["items"].append(
+                    {
+                        "date": date,
+                        "title": title,
+                        "label": file_name,
+                        "url": file_url,
+                        "spreadsheet_id": f.id,
+                    }
+                )
                 date_cell = f"'{date}" if date else ""
                 title_cell = f"'{title}" if title else ""
                 rows.append(
@@ -95,6 +128,34 @@ def generate_dj_set_collection():
             # Keep Date/Name as plain text; Link remains a formula.
             fmt.set_column_text_formatting(spreadsheet_id, name, [0, 1])
             tabs_to_add.append(name)
+
+    # Sort snapshot folders and items to match the spreadsheet ordering.
+    for folder_snapshot in collection_snapshot["folders"]:
+        if folder_snapshot["name"].lower() == "summary":
+            folder_snapshot["items"].sort(
+                key=lambda x: x.get("label", ""), reverse=True
+            )
+        else:
+            # Prefer date sorting when present; fall back to label.
+            folder_snapshot["items"].sort(
+                key=lambda x: (x.get("date", ""), x.get("label", "")),
+                reverse=True,
+            )
+
+    # Determine output path for the JSON snapshot.
+    json_output_path = (
+        getattr(config, "DEEJAY_SET_COLLECTION_JSON_PATH", None)
+        or "site_data/deejay_set_collection.json"
+    )
+    try:
+        os.makedirs(os.path.dirname(json_output_path) or ".", exist_ok=True)
+        with open(json_output_path, "w", encoding="utf-8") as f:
+            json.dump(collection_snapshot, f, ensure_ascii=False, indent=2)
+        log.info(f"🧾 Wrote DJ set collection JSON snapshot to: {json_output_path}")
+    except Exception:
+        log.exception(
+            f"Failed to write DJ set collection JSON snapshot to: {json_output_path}"
+        )
 
     # Clean up temp sheets if any
     log.info(f"Deleting temp sheets: {config.TEMP_TAB_NAME} and 'Sheet1' if they exist")
