@@ -219,7 +219,8 @@ def _normalize_csv(file_path: str) -> None:
 
     cleaned_lines: list[str] = []
     for i, line in enumerate(lines):
-        raw = line.strip()
+        # Strip whitespace and any UTF-8 BOM (Excel often writes BOM + sep=,)
+        raw = line.strip().lstrip("\ufeff")
 
         # Drop empty lines
         if not raw:
