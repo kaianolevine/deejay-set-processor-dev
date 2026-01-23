@@ -48,14 +48,14 @@ jobs:
 
       - name: Copy JSON snapshot into website repo
         run: |
-          mkdir -p website/site_data
-          cp -f site_data/deejay_set_collection.json website/site_data/deejay_set_collection.json
+          mkdir -p website/public/v1
+          cp -f public/v1/deejay_set_collection.json website/public/v1/deejay_set_collection.json
 
       - name: Commit and push website repo (if changed)
         run: |
           cd website
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add site_data/deejay_set_collection.json
+          git add v1/deejay-sets/deejay_set_collection.json
           git diff --cached --quiet || git commit -m "Update DJ set collection JSON"
           git push

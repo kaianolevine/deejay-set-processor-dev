@@ -1,12 +1,10 @@
-import json
-import os
 import re
-from datetime import datetime, timezone
 from typing import List, Tuple
 
 import kaiano.config as config
 from kaiano import logger as logger_mod
 from kaiano.google import GoogleAPI
+from kaiano.json import create_collection_snapshot, write_json_snapshot
 
 log = logger_mod.get_logger()
 
@@ -38,11 +36,7 @@ def generate_dj_set_collection():
     tabs_to_add: List[str] = []
 
     # Build a JSON snapshot alongside the Google Sheet output.
-    collection_snapshot = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "dj_sets_folder_id": parent_folder_id,
-        "folders": [],
-    }
+    collection_snapshot = create_collection_snapshot("folders")
 
     for folder in subfolders:
         name = folder.name
@@ -145,12 +139,10 @@ def generate_dj_set_collection():
     # Determine output path for the JSON snapshot.
     json_output_path = (
         getattr(config, "DEEJAY_SET_COLLECTION_JSON_PATH", None)
-        or "site_data/deejay_set_collection.json"
+        or "/v1/deejay_set_collection.json"
     )
     try:
-        os.makedirs(os.path.dirname(json_output_path) or ".", exist_ok=True)
-        with open(json_output_path, "w", encoding="utf-8") as f:
-            json.dump(collection_snapshot, f, ensure_ascii=False, indent=2)
+        write_json_snapshot(collection_snapshot, json_output_path)
         log.info(f"🧾 Wrote DJ set collection JSON snapshot to: {json_output_path}")
     except Exception:
         log.exception(
