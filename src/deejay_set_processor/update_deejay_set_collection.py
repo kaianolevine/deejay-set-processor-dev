@@ -139,7 +139,7 @@ def generate_dj_set_collection():
     # Determine output path for the JSON snapshot.
     json_output_path = (
         getattr(config, "DEEJAY_SET_COLLECTION_JSON_PATH", None)
-        or "/v1/deejay_set_collection.json"
+        or "v1/deejay-sets/deejay_set_collection.json"
     )
     try:
         write_json_snapshot(collection_snapshot, json_output_path)

@@ -48,8 +48,8 @@ jobs:
 
       - name: Copy JSON snapshot into website repo
         run: |
-          mkdir -p website/public/v1
-          cp -f public/v1/deejay_set_collection.json website/public/v1/deejay_set_collection.json
+          mkdir -p website/v1/deejay-sets
+          cp -f v1/deejay-sets/deejay_set_collection.json website/v1/deejay-sets/deejay_set_collection.json
 
       - name: Commit and push website repo (if changed)
         run: |
