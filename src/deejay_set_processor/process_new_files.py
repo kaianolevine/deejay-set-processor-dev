@@ -202,15 +202,43 @@ def _extract_year_from_filename(filename: str) -> str | None:
 
 
 def _normalize_csv(file_path: str) -> None:
+    """
+    Normalize a CSV file before upload.
+
+    This does the following, in order:
+    1) Removes a leading `sep=...` line if present (case-insensitive).
+    2) Drops empty / whitespace-only lines.
+    3) Normalizes runs of whitespace at a text level.
+
+    NOTE: This does NOT parse CSV structure.
+    """
     log.debug(f"normalize_csv called with file_path: {file_path} - reading file")
+
     with open(file_path, "r") as f:
         lines = f.readlines()
-    cleaned_lines = [
-        re.sub(r"\s+", " ", line).strip() for line in lines if line.strip()
-    ]
+
+    cleaned_lines: list[str] = []
+    for i, line in enumerate(lines):
+        # Strip whitespace and any UTF-8 BOM (Excel often writes BOM + sep=,)
+        raw = line.strip().lstrip("\ufeff")
+
+        # Drop empty lines
+        if not raw:
+            continue
+
+        # Drop Excel-style separator hint (e.g. "sep=,") if it appears as the first line
+        if i == 0 and raw.lower().startswith("sep="):
+            log.info(f"Removed CSV separator hint line: {raw}")
+            continue
+
+        cleaned = re.sub(r"\s+", " ", raw)
+        cleaned_lines.append(cleaned)
+
     log.debug(f"Lines after cleaning: {len(cleaned_lines)}")
+
     with open(file_path, "w") as f:
         f.write("\n".join(cleaned_lines))
+
     log.debug(f"✅ Normalized: {file_path}")
 
 
