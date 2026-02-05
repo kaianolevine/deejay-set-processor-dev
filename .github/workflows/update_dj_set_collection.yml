@@ -19,8 +19,8 @@ jobs:
     env:
       LOGGING_LEVEL: ${{ vars.LOGGING_LEVEL }}
       GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
-      # Also required: WEBSITE_REPO_TOKEN (fine-grained PAT with Contents: Read/Write on kaianolevine/website-sandbox)
-      
+      API_REPO_TOKEN: ${{ secrets.KAIANO_API_REPO_TOKEN }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -39,23 +39,27 @@ jobs:
       - name: Run create_dj_set_collection
         run: poetry run python -u src/deejay_set_processor/update_deejay_set_collection.py
 
-      - name: Checkout website repo
+      - name: Checkout kaiano-api repo
         uses: actions/checkout@v4
         with:
-          repository: kaianolevine/website-sandbox
+          repository: kaianolevine/kaiano-api
           path: website
-          token: ${{ secrets.WEBSITE_REPO_TOKEN }}
+          token: ${{ secrets.API_REPO_TOKEN }}
 
       - name: Copy JSON snapshot into website repo
         run: |
-          mkdir -p website/src/v1/deejay-sets
-          cp -f v1/deejay-sets/deejay_set_collection.json website/src/v1/deejay-sets/deejay_set_collection.json
+          mkdir -p website/src/json-site-data/deejay-sets
+          cp -f v1/deejay-sets/deejay_set_collection.json website/src/json-site-data/deejay-sets/deejay_set_collection.json
 
       - name: Commit and push website repo (if changed)
         run: |
           cd website
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/v1/deejay-sets/deejay_set_collection.json
-          git diff --cached --quiet || git commit -m "Update DJ set collection JSON"
+          git add src/json-site-data/deejay-sets/deejay_set_collection.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Update DJ set collection JSON"
           git push
