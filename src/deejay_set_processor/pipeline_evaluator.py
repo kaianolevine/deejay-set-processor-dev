@@ -43,6 +43,7 @@ def _build_claude_prompt(
     total_tracks: int,
     failed_set_labels: list[str],
     api_ingest_success: bool,
+    sets_attempted: int,
 ) -> str:
     failed = failed_set_labels or ["none"]
 
@@ -55,14 +56,19 @@ Sets failed: {sets_failed}
 Sets skipped: {sets_skipped}
 Tracks imported: {total_tracks}
 Failed sets: {", ".join(failed) or "none"}
+API ingest attempted: {sets_attempted > 0}
 API ingest succeeded: {api_ingest_success}
+New sets sent to API: {sets_attempted}
 
 Evaluate this pipeline run against these standards:
 
-PIPELINE_CONSISTENCY: Did the run behave as expected?
-- Any sets failed? (ERROR if failed > 0 with no known reason)
-- Were skipped sets accounted for by idempotency? (INFO)
-- Did API ingest succeed? (ERROR if False)
+PIPELINE_CONSISTENCY:
+- If API ingest was attempted (new sets existed) and failed:
+  severity ERROR
+- If no new sets existed (nothing to ingest): severity INFO,
+  note that this is expected behavior when collection is
+  already up to date
+- If API ingest was attempted and succeeded: severity INFO
 
 STRUCTURAL_CONFORMANCE: Does the pipeline follow patterns?
 - Pipeline continued on per-item failures (PRINCIPLE)
@@ -146,6 +152,7 @@ def evaluate_pipeline_run(
     total_tracks: int,
     failed_set_labels: list[str],
     api_ingest_success: bool,
+    sets_attempted: int = 0,
 ) -> EvaluationResult:
     """
     Call Claude to evaluate this pipeline run against the standards.
@@ -175,6 +182,7 @@ def evaluate_pipeline_run(
         total_tracks=total_tracks,
         failed_set_labels=failed_set_labels,
         api_ingest_success=api_ingest_success,
+        sets_attempted=sets_attempted,
     )
 
     evaluator_failed = False

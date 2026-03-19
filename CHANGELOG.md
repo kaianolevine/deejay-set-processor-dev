@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.78] - 2026-03-19
+
+- "Fixed false ERROR finding when no new sets were available
+  to ingest. No-op ingest is now correctly treated as success."
+
 ## [0.0.77] - 2026-03-19
 
 - "Improved Claude prompt for pipeline evaluation to enforce

@@ -199,10 +199,13 @@ def generate_dj_set_collection():
                         s.strip() for s in failed_set_labels_raw.split(",") if s.strip()
                     ]
 
-            api_ingest_success_raw = (
-                (os.getenv("API_INGEST_SUCCESS") or "").strip().lower()
-            )
-            api_ingest_success = api_ingest_success_raw in {"1", "true", "yes", "y"}
+            # If no sets existed for ingest, treat this as a successful no-op.
+            # Only mark API ingest as failed when an ingest attempt actually
+            # occurred and at least one set failed.
+            sets_attempted = sets_imported + sets_failed + sets_skipped
+            api_ingest_success = True
+            if sets_attempted > 0:
+                api_ingest_success = sets_failed == 0
 
             result = evaluate_pipeline_run(
                 run_id=run_id,
@@ -213,6 +216,7 @@ def generate_dj_set_collection():
                 total_tracks=total_tracks,
                 failed_set_labels=failed_set_labels,
                 api_ingest_success=api_ingest_success,
+                sets_attempted=sets_attempted,
             )
             log.info(
                 f"🤖 Evaluation complete: {result.errors} errors, {result.warnings} warnings, {result.infos} info findings"

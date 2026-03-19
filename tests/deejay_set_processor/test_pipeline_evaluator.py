@@ -56,6 +56,7 @@ def test_prompt_is_built_from_run_context(monkeypatch):
             total_tracks=25,
             failed_set_labels=[],
             api_ingest_success=True,
+            sets_attempted=12,
         )
 
     prompt = claude_client.messages.create.call_args.kwargs["messages"][0]["content"]
@@ -65,7 +66,11 @@ def test_prompt_is_built_from_run_context(monkeypatch):
     assert "Sets skipped: 2" in prompt
     assert "Tracks imported: 25" in prompt
     assert "Failed sets: none" in prompt
+    assert "API ingest attempted: True" in prompt
     assert "API ingest succeeded: True" in prompt
+    assert "New sets sent to API: 12" in prompt
+    assert "If no new sets existed (nothing to ingest)" in prompt
+    assert "expected behavior when collection is\n  already up to date" in prompt
     assert result.infos == 1
 
 
