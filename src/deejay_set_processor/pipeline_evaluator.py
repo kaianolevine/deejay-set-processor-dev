@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import UTC, datetime
 from typing import Any
 
 from kaiano import logger as logger_mod
@@ -13,6 +12,22 @@ from kaiano import logger as logger_mod
 log = logger_mod.get_logger()
 
 _JSON_FENCE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
+
+
+def _normalize_finding(item: dict) -> dict:
+    """
+    Normalize a finding dict from Claude.
+    Claude sometimes uses alternative key names instead of
+    "finding". Always ensure the "finding" key is present.
+    """
+    if not item.get("finding"):
+        for alt in ("message", "description", "detail", "text"):
+            if item.get(alt):
+                item["finding"] = item[alt]
+                break
+    if not item.get("finding"):
+        item["finding"] = "No finding text returned by evaluator."
+    return item
 
 
 def _anthropic_messages_create(
@@ -47,21 +62,35 @@ def _anthropic_messages_create(
     return "".join(parts).strip()
 
 
-def _parse_findings_json(text: str) -> list[dict[str, Any]]:
+def _parse_findings_from_claude(text: str) -> tuple[list[dict[str, Any]], bool]:
     raw = text.strip()
     m = _JSON_FENCE.search(raw)
     if m:
         raw = m.group(1).strip()
     try:
-        parsed = json.loads(raw)
+        parsed_top = json.loads(raw)
     except json.JSONDecodeError:
-        return []
-    if isinstance(parsed, dict) and "findings" in parsed:
-        inner = parsed["findings"]
-        return inner if isinstance(inner, list) else []
-    if isinstance(parsed, list):
-        return parsed
-    return []
+        return [], False
+
+    if isinstance(parsed_top, dict) and "findings" in parsed_top:
+        inner = parsed_top["findings"]
+        parsed = inner if isinstance(inner, list) else []
+    elif isinstance(parsed_top, list):
+        parsed = parsed_top
+    else:
+        return [], False
+
+    validated: list[dict[str, Any]] = []
+    for item in parsed:
+        if isinstance(item, dict):
+            validated.append(item)
+    return [_normalize_finding(item) for item in validated], False
+
+
+def _parse_findings_json(text: str) -> list[dict[str, Any]]:
+    """Backward-compatible alias; returns findings list only."""
+    findings, _ = _parse_findings_from_claude(text)
+    return findings
 
 
 def _build_prompt_csv(
@@ -172,34 +201,34 @@ def evaluate_pipeline_run(
                 duplicate_csv_count=duplicate_csv_count,
             )
 
-        text = _anthropic_messages_create(
+        claude_text = _anthropic_messages_create(
             api_key=os.environ["ANTHROPIC_API_KEY"],
             model=model,
             max_tokens=4096,
             user_prompt=user_prompt,
         )
-        findings = _parse_findings_json(text)
+        log.debug("Claude raw response: %s", claude_text[:500])
+        findings, _ = _parse_findings_from_claude(claude_text)
     except Exception:
         log.exception("pipeline evaluation: Claude request or parse failed")
         return
 
     err_ct = warn_ct = info_ct = 0
-    evaluated_at = datetime.now(UTC).isoformat()
 
     try:
         from kaiano.api import KaianoApiClient  # type: ignore[attr-defined]
-        from kaiano.api.errors import KaianoApiError  # type: ignore[attr-defined]
     except Exception:
         log.exception("pipeline evaluation: Kaiano API client not available")
         return
 
-    client = KaianoApiClient.from_env()
+    api_client = KaianoApiClient.from_env()
+    findings_posted = 0
+    evaluator_failed = False
 
-    for item in findings:
-        if not isinstance(item, dict):
+    for f in findings:
+        if not isinstance(f, dict):
             continue
-        dimension = str(item.get("dimension") or "pipeline_consistency")
-        sev = str(item.get("severity") or "INFO").upper()
+        sev = str(f.get("severity") or "INFO").upper()
         if sev == "WARNING":
             sev = "WARN"
         if sev == "ERROR":
@@ -209,34 +238,36 @@ def evaluate_pipeline_run(
         else:
             sev = "INFO"
             info_ct += 1
-        finding = str(item.get("finding") or "")
-        suggestion = str(item.get("suggestion") or "")
-        details = {
-            "run_id": run_id,
-            "finding": finding,
-            "suggestion": suggestion or None,
-            "standards_version": standards_version,
-            "evaluated_at": evaluated_at,
-            "collection_update": collection_update,
-        }
+
+        finding_text = (f.get("finding") or "").strip()
+        if not finding_text:
+            log.warning("Skipping finding with empty finding text")
+            continue
+
         payload = {
+            "run_id": run_id,
             "repo": repo,
-            "dimension": dimension,
+            "dimension": f.get("dimension") or "pipeline_consistency",
             "severity": sev,
-            "details": details,
+            "finding": finding_text,
+            "suggestion": f.get("suggestion") or None,
+            "standards_version": standards_version,
         }
         try:
-            client.post("/v1/evaluations", payload)
-        except KaianoApiError as e:
+            api_client.post("/v1/evaluations", payload)
+            findings_posted += 1
+        except Exception as e:
             log.warning("pipeline evaluation: failed to POST finding: %s", e)
-        except Exception:
-            log.exception("pipeline evaluation: unexpected error posting finding")
+            evaluator_failed = True
 
     log.info(
-        "🤖 Evaluation complete: %d errors, %d warnings, %d info findings",
+        "🤖 Evaluation complete: %d errors, %d warnings, %d info findings "
+        "(%d posted, evaluator_failed=%s)",
         err_ct,
         warn_ct,
         info_ct,
+        findings_posted,
+        evaluator_failed,
     )
 
 

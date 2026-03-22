@@ -170,5 +170,5 @@ def test_evaluate_pipeline_run_posts_findings(monkeypatch) -> None:
     assert path == "/v1/evaluations"
     assert body["repo"] == "deejay-set-processor-dev"
     assert body["severity"] == "INFO"
-    assert body["details"]["run_id"] == "r3"
-    assert body["details"]["finding"] == "ok"
+    assert body["run_id"] == "r3"
+    assert body["finding"] == "ok"

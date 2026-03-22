@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.0.83] - 2026-03-17
+
+- Fixed 422 error posting evaluation findings. Added finding key normalization and empty field guards.
+
 ## [0.0.79] - 2026-03-22
 
 - Fixed AI evaluation context in `update_deejay_set_collection` — it was reading env vars that were never set, always defaulting to 0.
