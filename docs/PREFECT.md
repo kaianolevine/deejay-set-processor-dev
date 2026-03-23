@@ -36,7 +36,12 @@ View all runs at: app.prefect.cloud
 Each run shows: task-level logs, duration, success/failure
 
 ## Evaluation
-Pipeline evaluation logic lives in the standalone evaluator-cog
-repo: https://github.com/kaianolevine/evaluator-cog
-See that repo's README for wiring instructions and
-docs/PREFECT_AUTOMATION.md for the Prefect Cloud automation setup.
+
+Pipeline evaluation logic lives in the standalone evaluator-cog repo.
+https://github.com/kaianolevine/evaluator-cog
+
+For automation setup instructions see:
+https://github.com/kaianolevine/evaluator-cog/blob/main/docs/PREFECT_AUTOMATION.md
+
+The on_failure and on_crashed hooks wired into both flows handle crash
+detection without requiring a Prefect automation to be configured.
