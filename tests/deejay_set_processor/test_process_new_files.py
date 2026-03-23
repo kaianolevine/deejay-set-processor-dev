@@ -3,6 +3,8 @@ import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from prefect.testing.utilities import prefect_test_harness
+
 import deejay_set_processor.process_new_files as process_new_files
 
 
@@ -32,7 +34,8 @@ def test_main_calls_evaluate_when_llm_and_api_configured(monkeypatch) -> None:
         patch.object(process_new_files, "config") as mock_cfg,
     ):
         mock_cfg.CSV_SOURCE_FOLDER_ID = "src-folder"
-        process_new_files.main()
+        with prefect_test_harness():
+            process_new_files.main()
 
     mock_eval.assert_called_once()
     kw = mock_eval.call_args.kwargs
@@ -57,7 +60,8 @@ def test_main_skips_evaluate_without_anthropic(monkeypatch) -> None:
         patch.object(process_new_files, "config") as mock_cfg,
     ):
         mock_cfg.CSV_SOURCE_FOLDER_ID = "src-folder"
-        process_new_files.main()
+        with prefect_test_harness():
+            process_new_files.main()
 
     mock_eval.assert_not_called()
 
@@ -68,7 +72,7 @@ def test_main_skips_evaluate_without_anthropic(monkeypatch) -> None:
 def _write_and_normalize(tmp_path, contents: str) -> str:
     path = tmp_path / "input.csv"
     path.write_text(contents)
-    process_new_files._normalize_csv(str(path))
+    process_new_files._normalize_csv.fn(str(path))
     return path.read_text()
 
 
@@ -151,7 +155,7 @@ def test_duplicate_csv_marks_source_as_possible_duplicate_and_skips_upload(tmp_p
         ) as mock_exists,
         patch.object(process_new_files, "_normalize_csv") as mock_normalize,
     ):
-        process_new_files.process_csv_file(g, file_meta, "2024")
+        process_new_files.process_csv_file.fn(g, file_meta, "2024")
 
     g.drive.download_file.assert_called_once()
     mock_normalize.assert_called_once()
@@ -184,7 +188,7 @@ def test_non_duplicate_csv_uploads_normally(tmp_path):
         ) as mock_exists,
         patch.object(process_new_files, "_normalize_csv") as mock_normalize,
     ):
-        process_new_files.process_csv_file(g, file_meta, "2024")
+        process_new_files.process_csv_file.fn(g, file_meta, "2024")
 
     g.drive.download_file.assert_called_once()
     mock_normalize.assert_called_once()
@@ -230,8 +234,8 @@ def test_failure_on_one_file_marks_failed_and_continues_to_next(tmp_path):
     with patch.object(
         process_new_files, "file_exists_with_base_name", return_value=False
     ) as mock_exists:
-        process_new_files.process_csv_file(g, failing_meta, "2024")
-        process_new_files.process_csv_file(g, succeeding_meta, "2024")
+        process_new_files.process_csv_file.fn(g, failing_meta, "2024")
+        process_new_files.process_csv_file.fn(g, succeeding_meta, "2024")
 
     mock_exists.assert_called()
     g.drive.rename_file.assert_any_call("file-fail", "FAILED_2024-01-01_Failing.csv")
@@ -247,7 +251,7 @@ def test_temp_file_is_removed_in_all_cases(tmp_path):
 
     g.drive.upload_csv_as_google_sheet.side_effect = RuntimeError("boom")
 
-    process_new_files.process_csv_file(g, file_meta, "2024")
+    process_new_files.process_csv_file.fn(g, file_meta, "2024")
 
     temp_path = os.path.join("/tmp", file_meta["name"])
     assert not os.path.exists(temp_path)
@@ -260,8 +264,9 @@ def test_ingest_set_to_api_skips_when_base_url_not_set(monkeypatch):
     monkeypatch.delenv("KAIANO_API_BASE_URL", raising=False)
     g = SimpleNamespace()
 
-    with patch.object(process_new_files, "log") as mock_log:
-        process_new_files._ingest_set_to_api(
+    mock_log = MagicMock()
+    with patch.object(process_new_files, "_prefect_logger", return_value=mock_log):
+        process_new_files._ingest_set_to_api.fn(
             spreadsheet_id="ssid",
             set_date="2024-01-01",
             venue="Venue",
@@ -304,7 +309,7 @@ def test_ingest_set_to_api_posts_payload(monkeypatch):
             "tracks": [{"play_order": 1, "title": "Song", "artist": "Artist"}],
         }
 
-        process_new_files._ingest_set_to_api(
+        process_new_files._ingest_set_to_api.fn(
             spreadsheet_id="ssid",
             set_date="2024-01-01",
             venue="Venue",
@@ -353,14 +358,15 @@ def test_ingest_set_to_api_logs_error_on_api_error(monkeypatch):
             "build_ingest_payload",
             return_value={"tracks": [{"title": "t", "artist": "a"}]},
         ),
-        patch.object(process_new_files, "log") as mock_log,
     ):
-        process_new_files._ingest_set_to_api(
-            spreadsheet_id="ssid",
-            set_date="2024-01-01",
-            venue="Venue",
-            label="label",
-            g=g,
-        )
+        mock_log = MagicMock()
+        with patch.object(process_new_files, "_prefect_logger", return_value=mock_log):
+            process_new_files._ingest_set_to_api.fn(
+                spreadsheet_id="ssid",
+                set_date="2024-01-01",
+                venue="Venue",
+                label="label",
+                g=g,
+            )
 
         mock_log.error.assert_called()

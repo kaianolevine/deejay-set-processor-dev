@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 import kaiano.config as config
 from kaiano import logger as logger_mod
 from kaiano.google import GoogleAPI
+from prefect import flow, get_run_logger, task
 
 from deejay_set_processor.ingest_to_api import (
     build_ingest_payload,
@@ -14,6 +15,13 @@ from deejay_set_processor.ingest_to_api import (
 from deejay_set_processor.pipeline_evaluator import evaluate_pipeline_run
 
 log = logger_mod.get_logger()
+
+
+def _prefect_logger():
+    try:
+        return get_run_logger()
+    except Exception:
+        return log
 
 
 @dataclass
@@ -171,97 +179,6 @@ def process_non_csv_file(
         log.error(f"Failed to move non-CSV file {filename}: {e}")
 
 
-def process_csv_file(
-    g: GoogleAPI,
-    file_metadata: dict,
-    year: str,
-    stats: CsvPipelineStats | None = None,
-) -> str:
-    """Process one CSV. Returns imported | failed | duplicate."""
-    filename = file_metadata["name"]
-    file_id = file_metadata["id"]
-    log.info(f"\n🚧 Processing: {filename}")
-    temp_path = os.path.join("/tmp", filename)
-
-    try:
-        g.drive.download_file(file_id, temp_path)
-        _normalize_csv(temp_path)
-        log.info(f"Downloaded and normalized file: {filename}")
-
-        year_folder_id = g.drive.ensure_folder(config.DJ_SETS_FOLDER_ID, year)
-        base_name = os.path.splitext(filename)[0]
-        if file_exists_with_base_name(g, year_folder_id, base_name):
-            log.warning(
-                f"⚠️ Destination already contains file with base name '{base_name}' in year folder {year_folder_id}. Marking original as possible duplicate and skipping."
-            )
-            rename_file_as_duplicate(g, file_id, filename)
-            if stats is not None:
-                stats.duplicate_csv += 1
-            return "duplicate"
-
-        sheet_id = g.drive.upload_csv_as_google_sheet(
-            temp_path, parent_id=year_folder_id
-        )
-        log.debug(f"Uploaded sheet ID: {sheet_id}")
-        g.sheets.formatter.apply_formatting_to_sheet(sheet_id)
-        remove_summary_file_for_year(g, year)
-
-        if stats is not None:
-            stats.sets_imported += 1
-            try:
-                tracks = read_tracks_from_sheet(g, sheet_id)
-                stats.total_tracks += len(tracks or [])
-            except Exception as track_exc:
-                log.warning(
-                    "Could not read tracks from new sheet for stats: %s", track_exc
-                )
-
-        try:
-            archive_folder_id = g.drive.ensure_folder(year_folder_id, "Archive")
-            g.drive.move_file(
-                file_id, new_parent_id=archive_folder_id, remove_from_parents=True
-            )
-            log.info(f"📦 Moved original file to Archive subfolder: {filename}")
-
-            base_name = os.path.splitext(filename)[0]
-            set_date, venue = _extract_date_and_venue(base_name)
-            if set_date and venue:
-                _ingest_set_to_api(
-                    spreadsheet_id=sheet_id,
-                    set_date=set_date,
-                    venue=venue,
-                    label=base_name,
-                    g=g,
-                    stats=stats,
-                )
-            else:
-                log.warning(
-                    "Could not extract date/venue from filename; skipping API ingest for %s",
-                    base_name,
-                )
-        except Exception as move_exc:
-            log.error(f"Failed to move original file to Archive subfolder: {move_exc}")
-
-        return "imported"
-
-    except Exception as e:
-        log.error(f"❌ Failed to upload or format {filename}: {e}")
-        try:
-            failed_name = f"FAILED_{filename}"
-            g.drive.rename_file(file_id, failed_name)
-            log.info(f"✏️ Renamed original to '{failed_name}'")
-            if stats is not None:
-                stats.sets_failed += 1
-                stats.failed_set_labels.append(os.path.splitext(filename)[0])
-        except Exception as rename_exc:
-            log.error(f"Failed to rename original to FAILED_: {rename_exc}")
-        return "failed"
-    finally:
-        if os.path.exists(temp_path):
-            with contextlib.suppress(Exception):
-                os.remove(temp_path)
-
-
 def _extract_year_from_filename(filename: str) -> str | None:
     log.debug(f"extract_year_from_filename called with filename: {filename}")
     match = re.match(r"(\d{4})[-_]", filename)
@@ -284,60 +201,7 @@ def _extract_date_and_venue(
     return match.group(1), match.group(2)
 
 
-def _ingest_set_to_api(
-    spreadsheet_id: str,
-    set_date: str,
-    venue: str,
-    label: str,
-    g: GoogleAPI,
-    stats: CsvPipelineStats | None = None,
-) -> None:
-    """
-    Send a single newly processed set to deejay-marvel-api.
-    Skips gracefully if KAIANO_API_BASE_URL is not set.
-    Logs success or failure but never raises — pipeline must continue.
-    """
-    import os as _os
-
-    if not _os.environ.get("KAIANO_API_BASE_URL"):
-        log.warning("KAIANO_API_BASE_URL not set — skipping API ingest for %s", label)
-        return
-
-    try:
-        from kaiano.api import KaianoApiClient  # type: ignore
-        from kaiano.api.errors import KaianoApiError  # type: ignore
-    except Exception as e:
-        log.error("❌ API client not available; skipping ingest for %s: %s", label, e)
-        return
-
-    try:
-        tracks = read_tracks_from_sheet(g, spreadsheet_id)
-        payload = build_ingest_payload(
-            set_date=set_date,
-            venue=venue,
-            source_file=label,
-            tracks=tracks,
-        )
-        final_tracks = payload.get("tracks") or []
-        if not final_tracks:
-            log.warning("⚠️ No tracks to ingest for %s", label)
-            return
-
-        if stats is not None:
-            stats.ingest_attempted += 1
-        client = KaianoApiClient.from_env()
-        client.post("/v1/ingest", payload)
-        log.info("✅ Ingested to API: %s (%d tracks)", label, len(final_tracks))
-    except KaianoApiError as e:
-        if stats is not None:
-            stats.ingest_failed += 1
-        log.error("❌ API ingest failed for %s: %s", label, e)
-    except Exception as e:
-        if stats is not None and stats.ingest_attempted > 0:
-            stats.ingest_failed += 1
-        log.error("❌ Unexpected error during API ingest for %s: %s", label, e)
-
-
+@task(name="normalize-csv")
 def _normalize_csv(file_path: str) -> None:
     """
     Normalize a CSV file before upload.
@@ -349,7 +213,8 @@ def _normalize_csv(file_path: str) -> None:
 
     NOTE: This does NOT parse CSV structure.
     """
-    log.debug(f"normalize_csv called with file_path: {file_path} - reading file")
+    logger = _prefect_logger()
+    logger.debug(f"normalize_csv called with file_path: {file_path} - reading file")
 
     with open(file_path) as f:
         lines = f.readlines()
@@ -365,23 +230,201 @@ def _normalize_csv(file_path: str) -> None:
 
         # Drop Excel-style separator hint (e.g. "sep=,") if it appears as the first line
         if i == 0 and raw.lower().startswith("sep="):
-            log.info(f"Removed CSV separator hint line: {raw}")
+            logger.info(f"Removed CSV separator hint line: {raw}")
             continue
 
         cleaned = re.sub(r"\s+", " ", raw)
         cleaned_lines.append(cleaned)
 
-    log.debug(f"Lines after cleaning: {len(cleaned_lines)}")
+    logger.debug(f"Lines after cleaning: {len(cleaned_lines)}")
 
     with open(file_path, "w") as f:
         f.write("\n".join(cleaned_lines))
 
-    log.debug(f"✅ Normalized: {file_path}")
+    logger.debug(f"✅ Normalized: {file_path}")
 
 
-# === MAIN ===
-def main():
-    log.info("Starting main process")
+@task(name="upload-to-sheets")
+def _upload_csv_to_sheets(
+    g: GoogleAPI,
+    temp_path: str,
+    year_folder_id: str,
+    year: str,
+    filename: str,
+) -> str:
+    """Upload normalized CSV as a Google Sheet, apply formatting, invalidate summary."""
+    logger = _prefect_logger()
+    sheet_id = g.drive.upload_csv_as_google_sheet(temp_path, parent_id=year_folder_id)
+    logger.debug("Uploaded sheet ID: %s", sheet_id)
+    g.sheets.formatter.apply_formatting_to_sheet(sheet_id)
+    remove_summary_file_for_year(g, year)
+    logger.debug("upload-to-sheets complete for %s", filename)
+    return sheet_id
+
+
+@task(
+    name="ingest-to-api",
+    retries=2,
+    retry_delay_seconds=30,
+)
+def _ingest_set_to_api(
+    spreadsheet_id: str,
+    set_date: str,
+    venue: str,
+    label: str,
+    g: GoogleAPI,
+    stats: CsvPipelineStats | None = None,
+) -> None:
+    """
+    Send a single newly processed set to deejay-marvel-api.
+    Skips gracefully if KAIANO_API_BASE_URL is not set.
+    Logs success or failure but never raises — pipeline must continue.
+    """
+    import os as _os
+
+    logger = _prefect_logger()
+
+    if not _os.environ.get("KAIANO_API_BASE_URL"):
+        logger.warning(
+            "KAIANO_API_BASE_URL not set — skipping API ingest for %s", label
+        )
+        return
+
+    try:
+        from kaiano.api import KaianoApiClient  # type: ignore
+        from kaiano.api.errors import KaianoApiError  # type: ignore
+    except Exception as e:
+        logger.error(
+            "❌ API client not available; skipping ingest for %s: %s", label, e
+        )
+        return
+
+    try:
+        tracks = read_tracks_from_sheet(g, spreadsheet_id)
+        payload = build_ingest_payload(
+            set_date=set_date,
+            venue=venue,
+            source_file=label,
+            tracks=tracks,
+        )
+        final_tracks = payload.get("tracks") or []
+        if not final_tracks:
+            logger.warning("⚠️ No tracks to ingest for %s", label)
+            return
+
+        if stats is not None:
+            stats.ingest_attempted += 1
+        client = KaianoApiClient.from_env()
+        client.post("/v1/ingest", payload)
+        logger.info("✅ Ingested to API: %s (%d tracks)", label, len(final_tracks))
+    except KaianoApiError as e:
+        if stats is not None:
+            stats.ingest_failed += 1
+        logger.error("❌ API ingest failed for %s: %s", label, e)
+    except Exception as e:
+        if stats is not None and stats.ingest_attempted > 0:
+            stats.ingest_failed += 1
+        logger.error("❌ Unexpected error during API ingest for %s: %s", label, e)
+
+
+@task(name="process-csv-file")
+def process_csv_file(
+    g: GoogleAPI,
+    file_metadata: dict,
+    year: str,
+    stats: CsvPipelineStats | None = None,
+) -> str:
+    """Process one CSV. Returns imported | failed | duplicate."""
+    logger = _prefect_logger()
+    filename = file_metadata["name"]
+    file_id = file_metadata["id"]
+    logger.info(f"\n🚧 Processing: {filename}")
+    temp_path = os.path.join("/tmp", filename)
+
+    try:
+        g.drive.download_file(file_id, temp_path)
+        _normalize_csv(temp_path)
+        logger.info(f"Downloaded and normalized file: {filename}")
+
+        year_folder_id = g.drive.ensure_folder(config.DJ_SETS_FOLDER_ID, year)
+        base_name = os.path.splitext(filename)[0]
+        if file_exists_with_base_name(g, year_folder_id, base_name):
+            logger.warning(
+                f"⚠️ Destination already contains file with base name '{base_name}' in year folder {year_folder_id}. Marking original as possible duplicate and skipping."
+            )
+            rename_file_as_duplicate(g, file_id, filename)
+            if stats is not None:
+                stats.duplicate_csv += 1
+            return "duplicate"
+
+        sheet_id = _upload_csv_to_sheets(g, temp_path, year_folder_id, year, filename)
+
+        if stats is not None:
+            stats.sets_imported += 1
+            try:
+                tracks = read_tracks_from_sheet(g, sheet_id)
+                stats.total_tracks += len(tracks or [])
+            except Exception as track_exc:
+                logger.warning(
+                    "Could not read tracks from new sheet for stats: %s", track_exc
+                )
+
+        try:
+            archive_folder_id = g.drive.ensure_folder(year_folder_id, "Archive")
+            g.drive.move_file(
+                file_id, new_parent_id=archive_folder_id, remove_from_parents=True
+            )
+            logger.info(f"📦 Moved original file to Archive subfolder: {filename}")
+
+            base_name = os.path.splitext(filename)[0]
+            set_date, venue = _extract_date_and_venue(base_name)
+            if set_date and venue:
+                _ingest_set_to_api(
+                    spreadsheet_id=sheet_id,
+                    set_date=set_date,
+                    venue=venue,
+                    label=base_name,
+                    g=g,
+                    stats=stats,
+                )
+            else:
+                logger.warning(
+                    "Could not extract date/venue from filename; skipping API ingest for %s",
+                    base_name,
+                )
+        except Exception as move_exc:
+            logger.error(
+                f"Failed to move original file to Archive subfolder: {move_exc}"
+            )
+
+        return "imported"
+
+    except Exception as e:
+        logger.error(f"❌ Failed to upload or format {filename}: {e}")
+        try:
+            failed_name = f"FAILED_{filename}"
+            g.drive.rename_file(file_id, failed_name)
+            logger.info(f"✏️ Renamed original to '{failed_name}'")
+            if stats is not None:
+                stats.sets_failed += 1
+                stats.failed_set_labels.append(os.path.splitext(filename)[0])
+        except Exception as rename_exc:
+            logger.error(f"Failed to rename original to FAILED_: {rename_exc}")
+        return "failed"
+    finally:
+        if os.path.exists(temp_path):
+            with contextlib.suppress(Exception):
+                os.remove(temp_path)
+
+
+@flow(
+    name="process-new-csv-files",
+    description="Normalize new DJ set CSVs, upload to "
+    "Google Sheets, archive, and ingest to API.",
+)
+def process_new_csv_files_flow() -> None:
+    logger = _prefect_logger()
+    logger.info("Starting main process")
     g = GoogleAPI.from_env()
 
     # Normalize any leftover status prefixes before processing
@@ -391,17 +434,17 @@ def main():
         config.CSV_SOURCE_FOLDER_ID, include_folders=False, trashed=False
     )
     files = [{"id": f.id, "name": f.name} for f in files]
-    log.info(f"Found {len(files)} files in source folder")
+    logger.info(f"Found {len(files)} files in source folder")
 
     stats = CsvPipelineStats()
 
     for file_metadata in files:
         filename = file_metadata["name"]
-        log.debug(f"Processing file: {filename}")
+        logger.debug(f"Processing file: {filename}")
 
         year = _extract_year_from_filename(filename)
         if not year:
-            log.warning(f"⚠️ Skipping unrecognized filename format: {filename}")
+            logger.warning(f"⚠️ Skipping unrecognized filename format: {filename}")
             stats.skipped_bad_filename += 1
             continue
 
@@ -414,7 +457,7 @@ def main():
         stats.sets_attempted += 1
         process_csv_file(g, file_metadata, year, stats)
 
-    log.info(
+    logger.info(
         "✅ Done: %d CSVs, %d non-CSV files, %d skipped.",
         stats.sets_attempted,
         stats.sets_skipped_non_csv,
@@ -439,10 +482,14 @@ def main():
                 duplicate_csv_count=stats.duplicate_csv,
             )
         except Exception:
-            log.exception(
+            logger.exception(
                 "Pipeline evaluation raised unexpectedly (should be best-effort)"
             )
 
 
+# Backwards-compatible alias for tests and callers that import main
+main = process_new_csv_files_flow
+
+
 if __name__ == "__main__":
-    main()
+    process_new_csv_files_flow()

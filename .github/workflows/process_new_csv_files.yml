@@ -21,6 +21,8 @@ jobs:
       OWNER_ID: ${{ vars.OWNER_ID }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       STANDARDS_VERSION: "6.0"
+      PREFECT_API_KEY: ${{ secrets.PREFECT_API_KEY }}
+      PREFECT_API_URL: https://api.prefect.cloud/api/accounts/${{ vars.PREFECT_ACCOUNT_ID }}/workspaces/${{ vars.PREFECT_WORKSPACE_ID }}
 
     steps:
       - name: Checkout repo
@@ -35,5 +37,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras
 
-      - name: Run process_new_files
+      - name: Authenticate with Prefect Cloud
+        run: uv run prefect cloud login --key ${{ secrets.PREFECT_API_KEY }} --workspace ${{ vars.PREFECT_WORKSPACE }}
+
+      - name: Run process_new_csv_files flow
         run: uv run python -u src/deejay_set_processor/process_new_files.py

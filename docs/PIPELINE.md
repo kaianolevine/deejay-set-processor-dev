@@ -13,7 +13,7 @@ This document describes the full pipeline from CSV drop to JSON output and where
    The **google-app-script-trigger** repo (or similar) detects new files or a request to refresh and sends a `repository_dispatch` event to this repo’s GitHub Actions.
 
 3. **Process new files** (this repo)  
-   The **process_new_csv_files** workflow runs `process_new_files.py`, which:
+   The **process_new_csv_files** workflow runs `process_new_files.py` (Prefect flow `process-new-csv-files`), which:
    - Normalizes status prefixes on filenames in the source folder (`FAILED_`, `possible_duplicate_`, `Copy of `).
    - For each file, extracts the year from the filename.
    - For CSVs: downloads, normalizes (e.g. strip `sep=`, empty lines), uploads as a Google Sheet into the corresponding year folder under the DJ Sets folder, applies formatting, moves the original file into that year’s `Archive` subfolder.
@@ -34,6 +34,21 @@ This document describes the full pipeline from CSV drop to JSON output and where
 
 6. **JSON output**  
    The JSON snapshot is consumed by **kaiano-api** (e.g. for the site’s DJ sets data).
+
+---
+
+## Orchestration
+
+`process_new_csv_files` is orchestrated by Prefect. Each run is visible in Prefect Cloud with task-level logs and retry tracking.
+
+- **Flow:** `process-new-csv-files`
+- **Tasks:**
+  - `process-csv-file` (per CSV: download → normalize → upload → archive → ingest)
+  - `normalize-csv`
+  - `upload-to-sheets`
+  - `ingest-to-api` (retries: 2, delay: 30s)
+
+View runs: [app.prefect.cloud](https://app.prefect.cloud)
 
 ---
 
