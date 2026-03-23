@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/kaianolevine/deejay-set-processor-dev/compare/v1.0.0...v1.1.0) (2026-03-23)
+
+
+### Features
+
+* migrate process_new_csv_files to Prefect flow ([d3a4e88](https://github.com/kaianolevine/deejay-set-processor-dev/commit/d3a4e8820bed50aebde588575bba91ff0049f026))
+
 # [1.0.0](https://github.com/kaianolevine/deejay-set-processor-dev/compare/v0.0.84...v1.0.0) (2026-03-23)
 
 
