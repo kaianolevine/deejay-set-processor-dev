@@ -231,3 +231,62 @@ def test_evaluate_pipeline_run_posts_findings(monkeypatch) -> None:
     assert body["severity"] == "INFO"
     assert body["run_id"] == "r3"
     assert body["finding"] == "ok"
+
+
+def test_evaluate_pipeline_run_skips_duplicate_finding(monkeypatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    monkeypatch.setenv("KAIANO_API_BASE_URL", "https://x")
+
+    payload = {
+        "findings": [
+            {
+                "dimension": "pipeline_consistency",
+                "severity": "WARN",
+                "finding": "duplicate finding text",
+                "suggestion": "",
+            }
+        ]
+    }
+
+    api = SimpleNamespace(
+        get=MagicMock(
+            return_value={
+                "data": [
+                    {
+                        "dimension": "pipeline_consistency",
+                        "severity": "WARN",
+                        "finding": "duplicate finding text",
+                    }
+                ]
+            }
+        ),
+        post=MagicMock(return_value={}),
+    )
+
+    with (
+        patch.object(
+            pe,
+            "_anthropic_messages_create",
+            return_value=json.dumps(payload),
+        ),
+        patch("kaiano.api.KaianoApiClient") as m_client,
+        patch.object(pe.log, "info") as mock_info,
+    ):
+        m_client.from_env.return_value = api
+        evaluate_pipeline_run(
+            run_id="r-dup",
+            repo="deejay-set-processor-dev",
+            sets_imported=0,
+            sets_failed=0,
+            sets_skipped=0,
+            total_tracks=0,
+            failed_set_labels=[],
+            api_ingest_success=True,
+            sets_attempted=0,
+        )
+
+    api.post.assert_not_called()
+    assert any(
+        call.args and "⏭️ Skipping duplicate finding:" in str(call.args[0])
+        for call in mock_info.call_args_list
+    )
