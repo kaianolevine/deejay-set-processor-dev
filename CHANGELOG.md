@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/kaianolevine/deejay-set-processor-dev/compare/v1.5.0...v1.6.0) (2026-03-23)
+
+
+### Features
+
+* adding flow name information ([8019ba3](https://github.com/kaianolevine/deejay-set-processor-dev/commit/8019ba30e95cbffee7634f63ab4bf3c791312fdc))
+
 # [1.5.0](https://github.com/kaianolevine/deejay-set-processor-dev/compare/v1.4.0...v1.5.0) (2026-03-23)
 
 
