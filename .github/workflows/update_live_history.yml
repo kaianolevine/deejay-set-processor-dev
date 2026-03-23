@@ -7,7 +7,7 @@ on:
     types: [vdj_history]
 
 concurrency:
-  group: dj-set-collection
+  group: live-history
   cancel-in-progress: false
 
 jobs:
@@ -19,6 +19,8 @@ jobs:
       KAIANO_API_BASE_URL: ${{ vars.KAIANO_API_BASE_URL }}
       KAIANO_API_OWNER_ID: ${{ vars.KAIANO_API_OWNER_ID }}
       OWNER_ID: ${{ vars.OWNER_ID }}
+      PREFECT_API_KEY: ${{ secrets.PREFECT_API_KEY }}
+      PREFECT_API_URL: ${{ vars.PREFECT_API_URL }}
 
     steps:
       - name: Checkout repo
@@ -32,6 +34,15 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --all-extras
+
+      - name: Authenticate with Prefect Cloud
+        env:
+          PREFECT_API_KEY: ${{ secrets.PREFECT_API_KEY }}
+          PREFECT_API_URL: ${{ vars.PREFECT_API_URL }}
+        run: |
+          uv run prefect cloud login \
+            --key $PREFECT_API_KEY \
+            --workspace ${{ vars.PREFECT_ACCOUNT_SLUG }}/${{ vars.PREFECT_WORKSPACE_SLUG }}
 
       - name: Run ingest_live_history
         run: uv run python -u src/deejay_set_processor/ingest_live_history.py

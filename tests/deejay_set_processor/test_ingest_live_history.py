@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from prefect.testing.utilities import prefect_test_harness
+
 import deejay_set_processor.ingest_live_history as live
 
 
@@ -54,7 +56,8 @@ def test_ingest_live_history_skips_when_no_api_url(monkeypatch) -> None:
     client = SimpleNamespace(post=MagicMock())
 
     with patch.object(live, "KaianoApiClient", return_value=client) as mock_client:
-        summary = live.ingest_live_history(g)
+        # .fn() avoids Prefect parameter validation (SimpleNamespace is not a GoogleAPI).
+        summary = live.ingest_live_history.fn(g)
 
     mock_client.assert_not_called()
     g.drive.get_all_m3u_files.assert_not_called()
@@ -89,8 +92,9 @@ def test_ingest_live_history_sends_plays_and_returns_summary(monkeypatch) -> Non
     with (
         patch.object(live, "KaianoApiClient", return_value=client) as mock_client_cls,
         patch.object(live, "M3UToolbox", return_value=m3u_instance),
+        prefect_test_harness(),
     ):
-        summary = live.ingest_live_history(g)
+        summary = live.ingest_live_history.fn(g)
 
     mock_client_cls.assert_called_once_with(
         base_url="https://example.test", owner_id="owner-xyz"

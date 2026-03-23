@@ -13,6 +13,7 @@ import pytz
 from kaiano import logger as logger_mod
 from kaiano.google import GoogleAPI
 from kaiano.vdj.m3u import M3UToolbox
+from prefect import flow, get_run_logger, task
 
 log = logger_mod.get_logger()
 
@@ -47,6 +48,13 @@ except Exception:  # pragma: no cover
                 ) from e
             except Exception as e:
                 raise KaianoApiError(str(e)) from e
+
+
+def _prefect_logger():
+    try:
+        return get_run_logger()
+    except Exception:
+        return log
 
 
 @dataclasses.dataclass
@@ -89,28 +97,90 @@ def build_live_plays_payload(entries: list) -> dict[str, Any]:
     return {"plays": plays}
 
 
+@task(name="process-m3u-file")
+def process_m3u_file(
+    g: GoogleAPI,
+    m3u_file: dict[str, Any],
+    client: Any,
+    owner_id: str,
+    seen_keys: set[str],
+) -> tuple[int, int, bool]:
+    """
+    Process one .m3u file: parse, POST /v1/live-plays, update seen_keys.
+
+    Returns (plays_sent, plays_failed, file_ok).
+    file_ok is False on API or unexpected errors; True on success or empty skip.
+    """
+    logger = _prefect_logger()
+    m3u_tool = M3UToolbox()
+    filename = m3u_file.get("name", "")
+    logger.info("Processing: %s", filename)
+    payload: dict[str, Any] | None = None
+    try:
+        lines = g.drive.download_m3u_file_data(m3u_file["id"])
+        file_date_str = filename.replace(".m3u", "").strip()
+        parsed_entries = m3u_tool.parse.parse_m3u_lines(lines, seen_keys, file_date_str)
+
+        for entry in parsed_entries:
+            key = "||".join(
+                [
+                    (entry.dt or "").strip().casefold(),
+                    (entry.title or "").strip().casefold(),
+                    (entry.artist or "").strip().casefold(),
+                ]
+            )
+            seen_keys.add(key)
+
+        payload = build_live_plays_payload(parsed_entries)
+        if not payload["plays"]:
+            logger.info("No valid plays in %s, skipping", filename)
+            return (0, 0, True)
+
+        logger.info(
+            "Sending %d plays from %s to API...", len(payload["plays"]), filename
+        )
+        if owner_id:
+            payload["owner_id"] = owner_id
+
+        client.post("/v1/live-plays", payload)
+        logger.info("✅ Sent %d plays from %s", len(payload["plays"]), filename)
+        return (len(payload["plays"]), 0, True)
+
+    except KaianoApiError as e:
+        logger.error("❌ API error for %s: %s", filename, e)
+        n_failed = len(payload.get("plays", [])) if payload is not None else 0
+        return (0, n_failed, False)
+    except Exception as e:
+        logger.error("❌ Failed to process %s: %s", filename, e)
+        return (0, 0, False)
+
+
+@flow(
+    name="ingest-live-history",
+    description="Read VDJ .m3u history files from Drive and send plays to deejay-marvel-api.",
+)
 def ingest_live_history(g: GoogleAPI) -> LiveIngestSummary:
     """
     Read all .m3u files from Drive, parse them, and send plays to POST /v1/live-plays.
     """
+    logger = _prefect_logger()
     base_url = os.getenv("KAIANO_API_BASE_URL", "").strip()
     owner_id = (os.getenv("KAIANO_API_OWNER_ID") or os.getenv("OWNER_ID") or "").strip()
 
     if not base_url:
-        log.warning("KAIANO_API_BASE_URL not set — skipping live history ingest")
+        logger.warning("KAIANO_API_BASE_URL not set — skipping live history ingest")
         return LiveIngestSummary(
             plays_sent=0, plays_failed=0, files_processed=0, files_failed=0
         )
 
     client = KaianoApiClient(base_url=base_url, owner_id=owner_id or None)
-    m3u_tool = M3UToolbox()
 
-    log.info("Listing .m3u files from Drive...")
+    logger.info("Listing .m3u files from Drive...")
     m3u_files = list(g.drive.get_all_m3u_files() or [])
-    log.info("Found %d .m3u file(s)", len(m3u_files))
+    logger.info("Found %d .m3u file(s)", len(m3u_files))
 
     if not m3u_files:
-        log.info("No .m3u files found. Nothing to ingest.")
+        logger.info("No .m3u files found. Nothing to ingest.")
         return LiveIngestSummary(
             plays_sent=0, plays_failed=0, files_processed=0, files_failed=0
         )
@@ -123,54 +193,15 @@ def ingest_live_history(g: GoogleAPI) -> LiveIngestSummary:
     seen_keys: set[str] = set()
 
     for m3u_file in m3u_files:
-        filename = m3u_file.get("name", "")
-        log.info("Processing: %s", filename)
-        payload: dict[str, Any] | None = None
-        try:
-            lines = g.drive.download_m3u_file_data(m3u_file["id"])
-            file_date_str = filename.replace(".m3u", "").strip()
-            parsed_entries = m3u_tool.parse.parse_m3u_lines(
-                lines, seen_keys, file_date_str
-            )
-
-            # Update seen_keys to avoid re-sending duplicates across files
-            for entry in parsed_entries:
-                key = "||".join(
-                    [
-                        (entry.dt or "").strip().casefold(),
-                        (entry.title or "").strip().casefold(),
-                        (entry.artist or "").strip().casefold(),
-                    ]
-                )
-                seen_keys.add(key)
-
-            payload = build_live_plays_payload(parsed_entries)
-            if not payload["plays"]:
-                log.info("No valid plays in %s, skipping", filename)
-                files_processed += 1
-                continue
-
-            log.info(
-                "Sending %d plays from %s to API...", len(payload["plays"]), filename
-            )
-            if owner_id:
-                payload["owner_id"] = owner_id
-
-            client.post("/v1/live-plays", payload)
-            plays_sent += len(payload["plays"])
+        ps, pf, file_ok = process_m3u_file(g, m3u_file, client, owner_id, seen_keys)
+        plays_sent += ps
+        plays_failed += pf
+        if file_ok:
             files_processed += 1
-            log.info("✅ Sent %d plays from %s", len(payload["plays"]), filename)
-
-        except KaianoApiError as e:
-            log.error("❌ API error for %s: %s", filename, e)
-            if payload is not None:
-                plays_failed += len(payload.get("plays", []))
-            files_failed += 1
-        except Exception as e:
-            log.error("❌ Failed to process %s: %s", filename, e)
+        else:
             files_failed += 1
 
-    log.info(
+    logger.info(
         "Live history ingest complete. plays_sent=%d plays_failed=%d files_processed=%d files_failed=%d",
         plays_sent,
         plays_failed,
