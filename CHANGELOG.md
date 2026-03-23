@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/kaianolevine/deejay-set-processor-dev/compare/v1.1.1...v1.2.0) (2026-03-23)
+
+
+### Features
+
+* migrate remaining workflows to Prefect flows ([ee3be9a](https://github.com/kaianolevine/deejay-set-processor-dev/commit/ee3be9aefc3a7613e0c37a5345bde1fd235deb8a))
+
 ## [1.1.1](https://github.com/kaianolevine/deejay-set-processor-dev/compare/v1.1.0...v1.1.1) (2026-03-23)
 
 
