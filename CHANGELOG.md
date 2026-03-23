@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/kaianolevine/deejay-set-processor-dev/compare/v1.1.0...v1.1.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* correct Prefect Cloud login command in workflow ([5ff9edb](https://github.com/kaianolevine/deejay-set-processor-dev/commit/5ff9edb886deef8b42a250bc43519a9e730e0869))
+
 # [1.1.0](https://github.com/kaianolevine/deejay-set-processor-dev/compare/v1.0.0...v1.1.0) (2026-03-23)
 
 
