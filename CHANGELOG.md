@@ -1,3 +1,10 @@
+## [1.7.3](https://github.com/kaianolevine/deejay-cog/compare/v1.7.2...v1.7.3) (2026-03-24)
+
+
+### Bug Fixes
+
+* removing m3u path ([be7239b](https://github.com/kaianolevine/deejay-cog/commit/be7239b765dce7986b638ca2e7308ff11344b7c6))
+
 ## [1.7.2](https://github.com/kaianolevine/deejay-cog/compare/v1.7.1...v1.7.2) (2026-03-24)
 
 
