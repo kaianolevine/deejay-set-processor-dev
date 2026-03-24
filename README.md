@@ -35,6 +35,8 @@ This repository is the backend processor for a Drive-based DJ set pipeline. It r
 | **update_deejay_set_collection.py** | Scans the DJ Sets folder (year subfolders + Summary), builds/updates the master collection spreadsheet (tabs per year + Summary), and writes the JSON snapshot to the path given by `DEEJAY_SET_COLLECTION_JSON_PATH`. |
 | **generate_summaries.py** | For each year folder, finds or creates the “{Year} Summary” sheet in the Summary folder, aggregating and filtering columns from that year’s set sheets (using `ALLOWED_HEADERS` and `desiredOrder`), then runs deduplication on the summary sheet. |
 | **deduplicate_summary.py** | CLI to deduplicate one or more summary spreadsheets in-place (merge duplicate rows, sum Count column). Used by `generate_summaries.py` and can be run standalone with spreadsheet IDs. |
+| **spotify_sync.py** | Provides Spotify sync helpers used by `process_new_files.py`: searches Spotify for tracks from a processed set, updates the radio playlist, and creates/rebuilds a per-set history playlist. |
+| **ingest_live_history.py** | Reads the most recent VirtualDJ `.m3u` history file from Drive and POSTs the parsed plays to the deejay-marvel-api `/v1/live-plays` endpoint. |
 
 ---
 
@@ -61,6 +63,32 @@ Drive/Sheets layout (from **kaiano-common-utils** config):
 | **desiredOrder** | Order of columns in summary sheets (subset of allowed headers). |
 | **DEEJAY_SET_COLLECTION_JSON_PATH** | File path for the JSON snapshot (default: `v1/deejay-sets/deejay_set_collection.json`). |
 
+Spotify (for CSV pipeline sync via `process_new_files.py`):
+
+| Variable | Description |
+|----------|-------------|
+| **SPOTIPY_CLIENT_ID** | Spotify application client ID. |
+| **SPOTIPY_CLIENT_SECRET** | Spotify application client secret. |
+| **SPOTIPY_REFRESH_TOKEN** | OAuth refresh token for the Spotify account. Generated once via the Spotipy OAuth flow. |
+| **SPOTIPY_REDIRECT_URI** | OAuth redirect URI (default: `http://127.0.0.1:8888/callback`). |
+| **SPOTIFY_RADIO_PLAYLIST_ID** | Spotify playlist ID for the standing radio playlist. Skipped if unset. |
+| **SPOTIFY_PLAYLIST_SNAPSHOT_JSON_PATH** | Output path for the Spotify playlist snapshot JSON (default: `v1/spotify/spotify_playlists.json`). |
+
+API and Prefect:
+
+| Variable | Description |
+|----------|-------------|
+| **KAIANO_API_BASE_URL** | Base URL for deejay-marvel-api. API ingest skipped if unset. |
+| **KAIANO_API_OWNER_ID** | Owner ID sent with API requests. Falls back to `OWNER_ID`. |
+| **OWNER_ID** | Fallback owner ID if `KAIANO_API_OWNER_ID` is not set. |
+| **PREFECT_API_KEY** | Prefect Cloud API key. |
+| **PREFECT_API_URL** | Prefect Cloud workspace API URL. |
+| **PREFECT_ACCOUNT_SLUG** | Prefect account slug (used in workflow login step). |
+| **PREFECT_WORKSPACE_SLUG** | Prefect workspace slug (used in workflow login step). |
+| **KAIANO_API_REPO_TOKEN** | GitHub token for cloning and pushing kaiano-api. Workflows only. |
+
+For one-time Spotify OAuth setup and obtaining a refresh token, see [docs/SPOTIFY_SETUP.md](docs/SPOTIFY_SETUP.md).
+
 In GitHub Actions, `GOOGLE_CREDENTIALS_JSON` is typically a **secret** and `LOGGING_LEVEL` a **variable**; other values are usually set in the **kaiano-common-utils** config (env or repo variables) used by this processor.
 
 ---
@@ -69,7 +97,8 @@ In GitHub Actions, `GOOGLE_CREDENTIALS_JSON` is typically a **secret** and `LOGG
 
 | Workflow | Trigger | Purpose |
 |----------|--------|--------|
-| **process_new_csv_files** | `repository_dispatch` (`new_csv_dj_sets`), `workflow_dispatch` | Runs `process_new_files.py` to ingest new files from the CSV source folder. |
+| **process_new_csv_files** | `repository_dispatch` (`new_csv_dj_sets`), `workflow_dispatch` | Runs `process_new_files.py` to ingest new files, syncs matched tracks to Spotify, and copies the Spotify playlist snapshot JSON to kaiano-api. |
+| **update_live_history** | `repository_dispatch` (`vdj_history`), `workflow_dispatch` | Runs `ingest_live_history.py` to read the most recent VDJ `.m3u` file and POST plays to deejay-marvel-api. |
 | **update_dj_set_collection** | `repository_dispatch` (`updated_dj_sets`), `workflow_dispatch` | Runs `update_deejay_set_collection.py`, then copies the JSON snapshot into **kaiano-api** and pushes. |
 | **generate_summaries** | `repository_dispatch` (`generate-summary`), `workflow_dispatch` | Runs `generate_summaries.py` to (re)build missing per-year summary sheets. |
 | **CI** | Push and pull request to `main` | Runs ruff and pytest with coverage on every PR/push; on push to `main`, runs **semantic-release** to version, update `CHANGELOG.md`, tag, and create GitHub releases. |

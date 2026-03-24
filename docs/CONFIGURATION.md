@@ -163,6 +163,41 @@ This document lists every environment variable and config value used by **deejay
 
 ---
 
+### KAIANO_API_BASE_URL
+
+| | |
+|--|--|
+| **Required** | No (API ingest skipped if unset) |
+| **Description** | Base URL for the deejay-marvel-api instance. Used to POST new sets and live history plays. |
+| **Example** | `https://your-api.railway.app` |
+| **Source** | GitHub Actions: **variable** `KAIANO_API_BASE_URL`. Locally: `.env`. |
+| **Used by** | `process_new_files.py`, `ingest_live_history.py` |
+
+---
+
+### KAIANO_API_OWNER_ID
+
+| | |
+|--|--|
+| **Required** | No (falls back to `OWNER_ID` if not set) |
+| **Description** | Owner ID sent with API requests to deejay-marvel-api. |
+| **Example** | `your-owner-id` |
+| **Source** | GitHub Actions: **variable** `KAIANO_API_OWNER_ID`. Locally: `.env`. |
+| **Used by** | `process_new_files.py`, `ingest_live_history.py` |
+
+---
+
+### OWNER_ID
+
+| | |
+|--|--|
+| **Required** | No (fallback for `KAIANO_API_OWNER_ID`) |
+| **Description** | Fallback owner ID if `KAIANO_API_OWNER_ID` is not set. |
+| **Source** | GitHub Actions: **variable** `OWNER_ID`. Locally: `.env`. |
+| **Used by** | `process_new_files.py`, `ingest_live_history.py` |
+
+---
+
 ### SPOTIPY_CLIENT_ID
 
 | | |
@@ -190,7 +225,7 @@ This document lists every environment variable and config value used by **deejay
 | | |
 |--|--|
 | **Required** | Yes (all Spotify features) |
-| **Description** | OAuth refresh token for the Spotify account. Generated once via `get_spotify_refresh_token.py`. |
+| **Description** | OAuth refresh token for the Spotify account. Generated once locally using `scripts/get_spotify_refresh_token.py` — see `docs/SPOTIFY_SETUP.md` for full instructions. |
 | **Source** | GitHub Actions: **secret** `SPOTIPY_REFRESH_TOKEN`. Locally: `.env`. |
 | **Used by** | `spotify_sync.py`, `process_new_files.py` |
 
@@ -229,9 +264,63 @@ This document lists every environment variable and config value used by **deejay
 
 ---
 
+## Prefect
+
+### PREFECT_API_KEY
+
+| | |
+|--|--|
+| **Required** | Yes (Prefect flow execution) |
+| **Description** | API key for authenticating with Prefect Cloud. |
+| **Source** | GitHub Actions: **secret** `PREFECT_API_KEY`. Locally: `.env`. |
+| **Used by** | All flow scripts via `prefect cloud login`. |
+
+---
+
+### PREFECT_API_URL
+
+| | |
+|--|--|
+| **Required** | Yes (Prefect flow execution) |
+| **Description** | Prefect Cloud workspace API URL. |
+| **Example** | `https://api.prefect.cloud/api/accounts/<account-id>/workspaces/<workspace-id>` |
+| **Source** | GitHub Actions: **variable** `PREFECT_API_URL`. Locally: `.env`. |
+| **Used by** | All flow scripts via `prefect cloud login`. |
+
+---
+
+### PREFECT_ACCOUNT_SLUG
+
+| | |
+|--|--|
+| **Required** | Yes (Prefect login step in workflows) |
+| **Description** | Prefect Cloud account slug used in the workspace login command. |
+| **Source** | GitHub Actions: **variable** `PREFECT_ACCOUNT_SLUG`. |
+| **Used by** | All workflows (login step only — not read by Python scripts directly). |
+
+---
+
+### PREFECT_WORKSPACE_SLUG
+
+| | |
+|--|--|
+| **Required** | Yes (Prefect login step in workflows) |
+| **Description** | Prefect Cloud workspace slug used in the workspace login command. |
+| **Source** | GitHub Actions: **variable** `PREFECT_WORKSPACE_SLUG`. |
+| **Used by** | All workflows (login step only — not read by Python scripts directly). |
+
+---
+
 ## GitHub-only (workflows)
 
-- **KAIANO_API_REPO_TOKEN**: GitHub secret used by **update_dj_set_collection** to clone and push the **kaiano-api** repo when copying the JSON snapshot. Not used by the Python scripts themselves.
+### KAIANO_API_REPO_TOKEN
+
+| | |
+|--|--|
+| **Required** | Yes (workflows that push to kaiano-api) |
+| **Description** | GitHub personal access token used to clone and push the kaiano-api repo when copying JSON snapshots. Not read by Python scripts directly. |
+| **Source** | GitHub Actions: **secret** `KAIANO_API_REPO_TOKEN`. |
+| **Used by** | `update_dj_set_collection` workflow, `process_new_csv_files` workflow. |
 
 ---
 
@@ -250,9 +339,17 @@ This document lists every environment variable and config value used by **deejay
 | ALLOWED_HEADERS | Yes (summaries) | kaiano config | generate_summaries |
 | desiredOrder | No | kaiano config | generate_summaries |
 | DEEJAY_SET_COLLECTION_JSON_PATH | No | kaiano config / default | update_deejay_set_collection |
+| KAIANO_API_BASE_URL | No | GitHub variable / `.env` | process_new_files, ingest_live_history |
+| KAIANO_API_OWNER_ID | No | GitHub variable / `.env` | process_new_files, ingest_live_history |
+| OWNER_ID | No | GitHub variable / `.env` | process_new_files, ingest_live_history |
 | SPOTIPY_CLIENT_ID | Yes (Spotify) | GitHub secret / `.env` | spotify_sync, process_new_files |
 | SPOTIPY_CLIENT_SECRET | Yes (Spotify) | GitHub secret / `.env` | spotify_sync, process_new_files |
 | SPOTIPY_REFRESH_TOKEN | Yes (Spotify) | GitHub secret / `.env` | spotify_sync, process_new_files |
 | SPOTIPY_REDIRECT_URI | No | GitHub variable / `.env` | spotify_sync |
 | SPOTIFY_RADIO_PLAYLIST_ID | No | GitHub variable / `.env` | spotify_sync, process_new_files |
 | SPOTIFY_PLAYLIST_SNAPSHOT_JSON_PATH | No | GitHub variable / `.env` | spotify_sync |
+| PREFECT_API_KEY | Yes (flows) | GitHub secret / `.env` | flow scripts (Prefect login) |
+| PREFECT_API_URL | Yes (flows) | GitHub variable / `.env` | flow scripts (Prefect login) |
+| PREFECT_ACCOUNT_SLUG | Yes (workflows) | GitHub variable | workflows (Prefect login) |
+| PREFECT_WORKSPACE_SLUG | Yes (workflows) | GitHub variable | workflows (Prefect login) |
+| KAIANO_API_REPO_TOKEN | Yes (kaiano-api push) | GitHub secret | update_dj_set_collection, process_new_csv_files |
