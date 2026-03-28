@@ -249,6 +249,10 @@ def create_spotify_playlist_for_file(
 
 def get_spotify_client() -> SpotifyAPI | None:
     """Return SpotifyAPI.from_env() or None if credentials are missing."""
+    os.environ.setdefault(
+        "SPOTIPY_REDIRECT_URI",
+        "http://127.0.0.1:8888/callback",
+    )
     if not os.getenv("SPOTIPY_CLIENT_ID") or not os.getenv("SPOTIPY_REFRESH_TOKEN"):
         log.warning(
             "SPOTIPY_CLIENT_ID or SPOTIPY_REFRESH_TOKEN not set; "

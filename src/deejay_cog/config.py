@@ -40,6 +40,12 @@ DEEJAY_SET_COLLECTION_JSON_PATH = os.getenv(
 # Live history timezone (ingest_live_history)
 TIMEZONE = os.getenv("TIMEZONE", "America/Chicago")
 
+# Spotify (OAuth redirect; SpotifyAPI.from_env reads env / mini_app_polis.config)
+SPOTIPY_REDIRECT_URI = os.getenv(
+    "SPOTIPY_REDIRECT_URI",
+    "http://127.0.0.1:8888/callback",
+)
+
 # Other
 SEP_CHARACTERS = "__"
 LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "DEBUG").upper()
