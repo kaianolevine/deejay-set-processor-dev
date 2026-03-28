@@ -122,7 +122,7 @@ def test_ingest_new_sets_to_api_failure_on_one_set_does_not_abort(monkeypatch):
 
     def post_side_effect(path, payload):
         if payload["source_file"] == "bad":
-            raise FakeError("nope")
+            raise FakeError(status_code=500, message="nope", path="/v1/ingest")
         return {"ok": True}
 
     client = SimpleNamespace(post=MagicMock(side_effect=post_side_effect))

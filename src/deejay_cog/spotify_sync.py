@@ -10,6 +10,7 @@ import os
 from typing import Any
 
 from mini_app_polis import logger as logger_mod
+from mini_app_polis.api import KaianoApiClient, KaianoApiError  # type: ignore
 from mini_app_polis.spotify import SpotifyAPI
 
 log = logger_mod.get_logger()
@@ -138,12 +139,6 @@ def push_playlists_to_api(sp: Any) -> int | None:
         log.warning(
             "KAIANO_API_BASE_URL not set — skipping Spotify playlist push to API",
         )
-        return None
-
-    try:
-        from mini_app_polis.api import KaianoApiClient, KaianoApiError  # type: ignore
-    except Exception as e:
-        log.error("Kaiano API client not available; skipping playlist push: %s", e)
         return None
 
     raw_playlists = fetch_all_playlists(sp)
