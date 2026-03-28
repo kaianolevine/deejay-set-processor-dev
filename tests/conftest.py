@@ -2,19 +2,19 @@ import sys
 import types
 
 
-def _install_kaiano_stubs() -> None:
+def _install_mini_app_polis_stubs() -> None:
     """
-    Provide minimal `kaiano` modules for unit tests when the real dependency
-    isn't installed in this execution environment.
+    Inject stub submodules into the real `mini_app_polis` package for
+    attributes/submodules that don't exist in the installed version of
+    common-python-utils, or to provide test-safe config values.
     """
+    import mini_app_polis as _real  # noqa: F401
 
-    kaiano_mod = types.ModuleType("kaiano")
-    sys.modules["kaiano"] = kaiano_mod
+    # ── mini_app_polis.config ────────────────────────────────────────────────
+    # Patch missing config attributes onto the real config module so tests
+    # that rely on them at import time don't crash.
+    import mini_app_polis.config as _config  # noqa: F401
 
-    # kaiano.config
-    config_mod = types.ModuleType("kaiano.config")
-    # These are patched in tests that rely on them; placeholders are enough
-    # for import-time attribute access.
     for name in [
         "DJ_SETS_FOLDER_ID",
         "OUTPUT_NAME",
@@ -22,89 +22,54 @@ def _install_kaiano_stubs() -> None:
         "SUMMARY_TAB_NAME",
         "CSV_SOURCE_FOLDER_ID",
         "SUMMARY_FOLDER_NAME",
+        "DEEJAY_SET_COLLECTION_JSON_PATH",
     ]:
-        setattr(config_mod, name, "")
-    sys.modules["kaiano.config"] = config_mod
-    kaiano_mod.config = config_mod
+        if not hasattr(_config, name):
+            setattr(_config, name, "")
 
-    # kaiano.logger
-    logger_mod = types.ModuleType("kaiano.logger")
+    # ── mini_app_polis.logger ────────────────────────────────────────────────
+    # Provide a no-op logger stub if the real one doesn't expose get_logger.
+    import mini_app_polis.logger as _logger_mod  # noqa: F401
 
-    class _DummyLogger:
-        def info(self, *_args, **_kwargs) -> None:
-            return None
+    if not hasattr(_logger_mod, "get_logger"):
+        class _DummyLogger:
+            def info(self, *_args, **_kwargs) -> None: return None
+            def debug(self, *_args, **_kwargs) -> None: return None
+            def warning(self, *_args, **_kwargs) -> None: return None
+            def error(self, *_args, **_kwargs) -> None: return None
+            def exception(self, *_args, **_kwargs) -> None: return None
 
-        def debug(self, *_args, **_kwargs) -> None:
-            return None
+        _logger_mod.get_logger = lambda: _DummyLogger()  # type: ignore[attr-defined]
 
-        def warning(self, *_args, **_kwargs) -> None:
-            return None
+    # ── mini_app_polis.google ────────────────────────────────────────────────
+    import mini_app_polis.google as _google_mod  # noqa: F401
 
-        def error(self, *_args, **_kwargs) -> None:
-            return None
+    if not hasattr(_google_mod, "GoogleAPI"):
+        class GoogleAPI:  # pragma: no cover
+            pass
+        _google_mod.GoogleAPI = GoogleAPI  # type: ignore[attr-defined]
 
-        def exception(self, *_args, **_kwargs) -> None:
-            return None
+    # ── mini_app_polis.api ───────────────────────────────────────────────────
+    import mini_app_polis.api as _api_mod  # noqa: F401
 
-    def get_logger() -> _DummyLogger:
-        return _DummyLogger()
+    if not hasattr(_api_mod, "KaianoApiClient"):
+        class KaianoApiError(Exception):
+            pass
 
-    logger_mod.get_logger = get_logger  # type: ignore[attr-defined]
-    sys.modules["kaiano.logger"] = logger_mod
-    kaiano_mod.logger = logger_mod
+        class KaianoApiClient:
+            def __init__(self, *_args, **_kwargs) -> None: return None
+            def post(self, *_args, **_kwargs) -> dict: return {}
+            @classmethod
+            def from_env(cls) -> "KaianoApiClient": return cls()
 
-    # kaiano.google
-    google_mod = types.ModuleType("kaiano.google")
+        _api_mod.KaianoApiClient = KaianoApiClient  # type: ignore[attr-defined]
+        _api_mod.KaianoApiError = KaianoApiError  # type: ignore[attr-defined]
 
-    class GoogleAPI:  # pragma: no cover
-        pass
-
-    google_mod.GoogleAPI = GoogleAPI
-    sys.modules["kaiano.google"] = google_mod
-    kaiano_mod.google = google_mod
-
-    # kaiano.json
-    json_mod = types.ModuleType("kaiano.json")
-
-    def create_collection_snapshot(_folder_name: str) -> dict:
-        return {"folders": []}
-
-    def write_json_snapshot(_snapshot: dict, _path: str) -> None:
-        return None
-
-    json_mod.create_collection_snapshot = create_collection_snapshot  # type: ignore[attr-defined]
-    json_mod.write_json_snapshot = write_json_snapshot  # type: ignore[attr-defined]
-    sys.modules["kaiano.json"] = json_mod
-    kaiano_mod.json = json_mod
-
-    # kaiano.api (used by pipeline_evaluator and ingest_to_api)
-    api_mod = types.ModuleType("kaiano.api")
-
-    class KaianoApiError(Exception):
-        pass
-
-    class KaianoApiClient:
-        def __init__(self, *_args, **_kwargs) -> None:
-            return None
-
-        def post(self, *_args, **_kwargs) -> dict:
-            return {}
-
-        @classmethod
-        def from_env(cls) -> "KaianoApiClient":
-            return cls()
-
-    api_mod.KaianoApiClient = KaianoApiClient
-    api_mod.KaianoApiError = KaianoApiError
-    sys.modules["kaiano.api"] = api_mod
-    kaiano_mod.api = api_mod
-
-    api_errors_mod = types.ModuleType("kaiano.api.errors")
-    api_errors_mod.KaianoApiError = KaianoApiError
-    sys.modules["kaiano.api.errors"] = api_errors_mod
+    if "mini_app_polis.api.errors" not in sys.modules:
+        api_errors_mod = types.ModuleType("mini_app_polis.api.errors")
+        if hasattr(_api_mod, "KaianoApiError"):
+            api_errors_mod.KaianoApiError = _api_mod.KaianoApiError  # type: ignore[attr-defined]
+        sys.modules["mini_app_polis.api.errors"] = api_errors_mod
 
 
-try:
-    import kaiano  # noqa: F401
-except ModuleNotFoundError:  # pragma: no cover
-    _install_kaiano_stubs()
+_install_mini_app_polis_stubs()

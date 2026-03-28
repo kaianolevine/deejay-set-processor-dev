@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import deejay_set_processor.ingest_to_api as ingest
+import deejay_cog.ingest_to_api as ingest
 
 
 def test_read_tracks_from_sheet_handles_missing_columns_gracefully():

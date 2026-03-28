@@ -1,14 +1,27 @@
+import json
 import os
+import pathlib
 import re
 
-import kaiano.config as config
-from kaiano import logger as logger_mod
-from kaiano.google import GoogleAPI
-from kaiano.json import create_collection_snapshot, write_json_snapshot
+import mini_app_polis.config as config
+from mini_app_polis import logger as logger_mod
+from mini_app_polis.google import GoogleAPI
 from pipeline_evaluator.evaluator import evaluate_pipeline_run
 from prefect import flow, get_run_logger
 
 log = logger_mod.get_logger()
+
+
+def _create_collection_snapshot(key: str) -> dict:
+    """Return an empty snapshot dict with the given top-level key."""
+    return {key: []}
+
+
+def _write_json_snapshot(data: dict, path: str) -> None:
+    """Write data as formatted JSON to path, creating parent dirs as needed."""
+    out = pathlib.Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def _prefect_logger():
@@ -37,7 +50,7 @@ def _handle_flow_failure(flow, flow_run, state) -> None:
         logger.error("Flow failure hook fired: run_id=%s state=%s", run_id, state_name)
         evaluate_pipeline_run(
             run_id=run_id,
-            repo="deejay-set-processor-dev",
+            repo="deejay-cog",
             flow_name=flow.name,
             sets_imported=0,
             sets_failed=0,
@@ -92,7 +105,7 @@ def generate_dj_set_collection():
     tabs_to_add: list[str] = []
 
     # Build a JSON snapshot alongside the Google Sheet output.
-    collection_snapshot = create_collection_snapshot("folders")
+    collection_snapshot = _create_collection_snapshot("folders")
 
     for folder in subfolders:
         name = folder.name
@@ -199,7 +212,7 @@ def generate_dj_set_collection():
     )
     json_snapshot_written = False
     try:
-        write_json_snapshot(collection_snapshot, json_output_path)
+        _write_json_snapshot(collection_snapshot, json_output_path)
         json_snapshot_written = True
         logger.info(f"🧾 Wrote DJ set collection JSON snapshot to: {json_output_path}")
     except Exception:
@@ -235,7 +248,7 @@ def generate_dj_set_collection():
         try:
             evaluate_pipeline_run(
                 run_id=run_id,
-                repo="deejay-set-processor-dev",
+                repo="deejay-cog",
                 flow_name="update-dj-set-collection",
                 sets_imported=0,
                 sets_failed=0,

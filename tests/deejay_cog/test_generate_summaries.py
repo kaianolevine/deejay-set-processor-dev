@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import deejay_set_processor.generate_summaries as generate_summaries
+import deejay_cog.generate_summaries as generate_summaries
 
 
 def _make_file(name: str, fid: str):

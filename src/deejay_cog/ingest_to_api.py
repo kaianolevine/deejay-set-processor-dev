@@ -6,15 +6,15 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from kaiano import logger as logger_mod
-from kaiano.google import GoogleAPI
+from mini_app_polis import logger as logger_mod
+from mini_app_polis.google import GoogleAPI
 
 log = logger_mod.get_logger()
 
 
 try:
-    # Preferred: provided by kaiano-common-utils (per ecosystem standards).
-    from kaiano.api import KaianoApiClient, KaianoApiError  # type: ignore
+    # Provided by common-python-utils (per ecosystem standards).
+    from mini_app_polis.api import KaianoApiClient, KaianoApiError  # type: ignore
 except Exception:  # pragma: no cover
 
     class KaianoApiError(Exception):

@@ -2,8 +2,8 @@ import argparse
 import sys
 from typing import Any
 
-from kaiano import logger as logger_mod
-from kaiano.google import GoogleAPI
+from mini_app_polis import logger as logger_mod
+from mini_app_polis.google import GoogleAPI
 
 log = logger_mod.get_logger()
 

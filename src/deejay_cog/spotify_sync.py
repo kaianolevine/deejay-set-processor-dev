@@ -11,12 +11,12 @@ import os
 from datetime import UTC, datetime
 from typing import Any
 
-from kaiano import logger as logger_mod
-from kaiano.spotify import SpotifyAPI
+from mini_app_polis import logger as logger_mod
+from mini_app_polis.spotify import SpotifyAPI
 
 log = logger_mod.get_logger()
 
-# Env-driven config (kaiano loads dotenv when config is first imported).
+# Env-driven config (mini_app_polis loads dotenv when config is first imported).
 SPOTIFY_PLAYLIST_SNAPSHOT_JSON_PATH = os.getenv(
     "SPOTIFY_PLAYLIST_SNAPSHOT_JSON_PATH",
     "v1/spotify/spotify_playlists.json",

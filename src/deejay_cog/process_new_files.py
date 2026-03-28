@@ -3,17 +3,17 @@ import os
 import re
 from dataclasses import dataclass, field
 
-import kaiano.config as config
-from kaiano import logger as logger_mod
-from kaiano.google import GoogleAPI
+import mini_app_polis.config as config
+from mini_app_polis import logger as logger_mod
+from mini_app_polis.google import GoogleAPI
 from pipeline_evaluator.evaluator import evaluate_pipeline_run
 from prefect import flow, get_run_logger, task
 
-from deejay_set_processor.ingest_to_api import (
+from deejay_cog.ingest_to_api import (
     build_ingest_payload,
     read_tracks_from_sheet,
 )
-from deejay_set_processor.spotify_sync import get_spotify_client, sync_set_to_spotify
+from deejay_cog.spotify_sync import get_spotify_client, sync_set_to_spotify
 
 log = logger_mod.get_logger()
 
@@ -44,7 +44,7 @@ def _handle_flow_failure(flow, flow_run, state) -> None:
         logger.error("Flow failure hook fired: run_id=%s state=%s", run_id, state_name)
         evaluate_pipeline_run(
             run_id=run_id,
-            repo="deejay-set-processor-dev",
+            repo="deejay-cog",
             flow_name=flow.name,
             sets_imported=0,
             sets_failed=0,
@@ -335,8 +335,8 @@ def _ingest_set_to_api(
         return
 
     try:
-        from kaiano.api import KaianoApiClient  # type: ignore
-        from kaiano.api.errors import KaianoApiError  # type: ignore
+        from mini_app_polis.api import KaianoApiClient  # type: ignore
+        from mini_app_polis.api.errors import KaianoApiError  # type: ignore
     except Exception as e:
         logger.error(
             "❌ API client not available; skipping ingest for %s: %s", label, e
@@ -567,7 +567,7 @@ def process_new_csv_files_flow() -> None:
         try:
             evaluate_pipeline_run(
                 run_id=run_id,
-                repo="deejay-set-processor-dev",
+                repo="deejay-cog",
                 flow_name="process-new-csv-files",
                 sets_imported=stats.sets_imported,
                 sets_failed=stats.sets_failed,
@@ -598,7 +598,7 @@ def process_new_csv_files_flow() -> None:
             if aux_parts:
                 evaluate_pipeline_run(
                     run_id=run_id,
-                    repo="deejay-set-processor-dev",
+                    repo="deejay-cog",
                     flow_name="process-new-csv-files",
                     sets_imported=0,
                     sets_failed=0,

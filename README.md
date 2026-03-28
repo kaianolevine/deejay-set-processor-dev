@@ -1,4 +1,4 @@
-# deejay-set-processor
+# deejay-cog
 
 Processes DJ set CSV files from Google Drive into Google Sheets (organized by year), builds a master collection spreadsheet and JSON snapshot, generates per-year summary sheets, and pushes the collection JSON to **kaiano-api** for the site.
 
@@ -114,16 +114,16 @@ The **google-app-script-trigger** repo sends `repository_dispatch` events to thi
 - **Install and run**:
 
 ```bash
-git clone git@github.com:kaianolevine/deejay-set-processor.git
-cd deejay-set-processor
+git clone git@github.com:kaianolevine/deejay-cog.git
+cd deejay-cog
 uv sync --all-extras
-uv run python -u src/deejay_set_processor/process_new_files.py   # or update_deejay_set_collection.py, generate_summaries.py
+uv run python -u src/deejay_cog/process_new_files.py   # or update_deejay_set_collection.py, generate_summaries.py
 ```
 
 For `deduplicate_summary.py` (spreadsheet IDs as arguments):
 
 ```bash
-uv run python -u src/deejay_set_processor/deduplicate_summary.py <spreadsheet_id> [spreadsheet_id ...]
+uv run python -u src/deejay_cog/deduplicate_summary.py <spreadsheet_id> [spreadsheet_id ...]
 ```
 
 ---
@@ -162,7 +162,7 @@ Both are managed automatically on merge to `main`.
 
 ## Dependencies
 
-- **kaiano-common-utils** ([GitHub main branch](https://github.com/kaianolevine/kaiano-common-utils)): Shared config, logging, and Google Drive/Sheets helpers. Declared in `pyproject.toml` and installed by `uv sync`.
+- **common-python-utils** ([GitHub main branch](https://github.com/kaianolevine/common-python-utils)): Shared config, logging, and Google Drive/Sheets helpers. Declared in `pyproject.toml` and installed by `uv sync`.
 
 ---
 

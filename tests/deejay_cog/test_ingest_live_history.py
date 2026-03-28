@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from prefect.testing.utilities import prefect_test_harness
 
-import deejay_set_processor.ingest_live_history as live
+import deejay_cog.ingest_live_history as live
 
 
 def test_build_live_plays_payload_parses_entries_correctly(monkeypatch) -> None:

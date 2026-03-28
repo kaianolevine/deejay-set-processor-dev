@@ -2,7 +2,7 @@ import contextlib
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import deejay_set_processor.deduplicate_summary as dedup_mod
+import deejay_cog.deduplicate_summary as dedup_mod
 
 
 def _make_g_for_sheet(data):

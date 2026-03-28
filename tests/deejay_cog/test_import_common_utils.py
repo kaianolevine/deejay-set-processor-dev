@@ -1,4 +1,4 @@
-from deejay_set_processor import placeholder
+from deejay_cog import placeholder
 
 
 def test_placeholder():

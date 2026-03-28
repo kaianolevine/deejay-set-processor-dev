@@ -2,7 +2,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
-from deejay_set_processor import spotify_sync as ss
+from deejay_cog import spotify_sync as ss
 
 
 def test_normalize_playlist_item_full() -> None:

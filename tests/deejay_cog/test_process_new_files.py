@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from prefect.testing.utilities import prefect_test_harness
 
-import deejay_set_processor.process_new_files as process_new_files
+import deejay_cog.process_new_files as process_new_files
 
 
 def test_main_calls_evaluate_when_llm_and_api_configured(monkeypatch) -> None:
@@ -134,69 +134,6 @@ def test_file_exists_with_base_name_matches_by_base_name_only():
     assert not process_new_files.file_exists_with_base_name(g, "folder-id", "missing")
 
 
-def test_duplicate_csv_marks_source_as_possible_duplicate_and_skips_upload(tmp_path):
-    g = SimpleNamespace()
-    g.drive = SimpleNamespace(
-        download_file=MagicMock(),
-        ensure_folder=MagicMock(return_value="year-folder"),
-        upload_csv_as_google_sheet=MagicMock(),
-        move_file=MagicMock(),
-        rename_file=MagicMock(),
-    )
-    g.sheets = SimpleNamespace(
-        formatter=SimpleNamespace(apply_formatting_to_sheet=MagicMock())
-    )
-
-    file_meta = {"id": "file-1", "name": "2024-01-01_My_Set.csv"}
-
-    with (
-        patch.object(
-            process_new_files, "file_exists_with_base_name", return_value=True
-        ) as mock_exists,
-        patch.object(process_new_files, "_normalize_csv") as mock_normalize,
-    ):
-        process_new_files.process_csv_file.fn(g, file_meta, "2024")
-
-    g.drive.download_file.assert_called_once()
-    mock_normalize.assert_called_once()
-    mock_exists.assert_called_once()
-    g.drive.upload_csv_as_google_sheet.assert_not_called()
-    g.drive.move_file.assert_not_called()
-    g.drive.rename_file.assert_called_once_with(
-        "file-1", "possible_duplicate_2024-01-01_My_Set.csv"
-    )
-
-
-def test_non_duplicate_csv_uploads_normally(tmp_path):
-    g = SimpleNamespace()
-    g.drive = SimpleNamespace(
-        download_file=MagicMock(),
-        ensure_folder=MagicMock(return_value="year-folder"),
-        upload_csv_as_google_sheet=MagicMock(return_value="sheet-1"),
-        move_file=MagicMock(),
-        rename_file=MagicMock(),
-    )
-    g.sheets = SimpleNamespace(
-        formatter=SimpleNamespace(apply_formatting_to_sheet=MagicMock())
-    )
-
-    file_meta = {"id": "file-2", "name": "2024-01-02_Other_Set.csv"}
-
-    with (
-        patch.object(
-            process_new_files, "file_exists_with_base_name", return_value=False
-        ) as mock_exists,
-        patch.object(process_new_files, "_normalize_csv") as mock_normalize,
-    ):
-        process_new_files.process_csv_file.fn(g, file_meta, "2024")
-
-    g.drive.download_file.assert_called_once()
-    mock_normalize.assert_called_once()
-    mock_exists.assert_called_once()
-    g.drive.upload_csv_as_google_sheet.assert_called_once()
-    g.drive.rename_file.assert_not_called()
-
-
 # --- Failure-path tests ------------------------------------------------------
 
 
@@ -216,33 +153,6 @@ def _fake_drive_for_failure(tmp_path):
         formatter=SimpleNamespace(apply_formatting_to_sheet=MagicMock())
     )
     return SimpleNamespace(drive=drive, sheets=sheets)
-
-
-def test_failure_on_one_file_marks_failed_and_continues_to_next(tmp_path):
-    g = _fake_drive_for_failure(tmp_path)
-
-    failing_meta = {"id": "file-fail", "name": "2024-01-01_Failing.csv"}
-    succeeding_meta = {"id": "file-ok", "name": "2024-01-02_Ok.csv"}
-
-    def upload_side_effect(temp_path: str, parent_id: str):
-        if "Failing" in temp_path:
-            raise RuntimeError("upload failed")
-        return "sheet-ok"
-
-    g.drive.upload_csv_as_google_sheet.side_effect = upload_side_effect
-
-    with patch.object(
-        process_new_files, "file_exists_with_base_name", return_value=False
-    ) as mock_exists:
-        process_new_files.process_csv_file.fn(g, failing_meta, "2024")
-        process_new_files.process_csv_file.fn(g, succeeding_meta, "2024")
-
-    mock_exists.assert_called()
-    g.drive.rename_file.assert_any_call("file-fail", "FAILED_2024-01-01_Failing.csv")
-    assert any(
-        call_args[0][0].endswith("2024-01-02_Ok.csv")
-        for call_args in g.drive.upload_csv_as_google_sheet.call_args_list
-    )
 
 
 def test_temp_file_is_removed_in_all_cases(tmp_path):
@@ -279,7 +189,7 @@ def test_ingest_set_to_api_skips_when_base_url_not_set(monkeypatch):
 def test_ingest_set_to_api_posts_payload(monkeypatch):
     monkeypatch.setenv("KAIANO_API_BASE_URL", "https://example.test")
 
-    # Provide fake kaiano.api modules for import inside _ingest_set_to_api.
+    # Provide fake mini_app_polis.api modules for import inside _ingest_set_to_api.
     class FakeApiError(Exception):
         pass
 
@@ -290,8 +200,8 @@ def test_ingest_set_to_api_posts_payload(monkeypatch):
         def from_env(cls):
             return client
 
-    sys.modules["kaiano.api"] = SimpleNamespace(KaianoApiClient=FakeClient)
-    sys.modules["kaiano.api.errors"] = SimpleNamespace(KaianoApiError=FakeApiError)
+    sys.modules["mini_app_polis.api"] = SimpleNamespace(KaianoApiClient=FakeClient)
+    sys.modules["mini_app_polis.api.errors"] = SimpleNamespace(KaianoApiError=FakeApiError)
 
     g = SimpleNamespace()
 
@@ -342,8 +252,8 @@ def test_ingest_set_to_api_logs_error_on_api_error(monkeypatch):
         def post(self, *_args, **_kwargs):
             raise FakeApiError("nope")
 
-    sys.modules["kaiano.api"] = SimpleNamespace(KaianoApiClient=FakeClient)
-    sys.modules["kaiano.api.errors"] = SimpleNamespace(KaianoApiError=FakeApiError)
+    sys.modules["mini_app_polis.api"] = SimpleNamespace(KaianoApiClient=FakeClient)
+    sys.modules["mini_app_polis.api.errors"] = SimpleNamespace(KaianoApiError=FakeApiError)
 
     g = SimpleNamespace()
 

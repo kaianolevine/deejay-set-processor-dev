@@ -1,12 +1,12 @@
 import os
 
-import kaiano.config as config
-from kaiano import logger as logger_mod
-from kaiano.google import GoogleAPI
+import mini_app_polis.config as config
+from mini_app_polis import logger as logger_mod
+from mini_app_polis.google import GoogleAPI
 from pipeline_evaluator.evaluator import evaluate_pipeline_run
 from prefect import flow, get_run_logger
 
-import deejay_set_processor.deduplicate_summary as deduplication
+import deejay_cog.deduplicate_summary as deduplication
 
 log = logger_mod.get_logger()
 
@@ -37,7 +37,7 @@ def _handle_flow_failure(flow, flow_run, state) -> None:
         logger.error("Flow failure hook fired: run_id=%s state=%s", run_id, state_name)
         evaluate_pipeline_run(
             run_id=run_id,
-            repo="deejay-set-processor-dev",
+            repo="deejay-cog",
             flow_name=flow.name,
             sets_imported=0,
             sets_failed=0,
@@ -155,7 +155,7 @@ def generate_summaries_flow() -> None:
         try:
             evaluate_pipeline_run(
                 run_id=run_id,
-                repo="deejay-set-processor-dev",
+                repo="deejay-cog",
                 flow_name="generate-summaries",
                 sets_imported=0,
                 sets_failed=0,
