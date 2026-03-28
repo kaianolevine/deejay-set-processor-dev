@@ -1,3 +1,10 @@
+## [1.9.4](https://github.com/mini-app-polis/deejay-cog/compare/v1.9.3...v1.9.4) (2026-03-28)
+
+
+### Bug Fixes
+
+* moved evaluator-cog, now supported ([df74d4b](https://github.com/mini-app-polis/deejay-cog/commit/df74d4bfb8bb2eba8f143f5c0c7d6aa13775b5af))
+
 ## [1.9.3](https://github.com/mini-app-polis/deejay-cog/compare/v1.9.2...v1.9.3) (2026-03-28)
 
 
