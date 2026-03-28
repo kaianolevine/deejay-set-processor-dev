@@ -164,7 +164,7 @@ def test_push_playlists_to_api_returns_none_on_kaiano_api_error(
 ) -> None:
     import logging
 
-    from mini_app_polis.api.errors import KaianoApiError
+    from mini_app_polis.api import KaianoApiError
 
     monkeypatch.setenv("KAIANO_API_BASE_URL", "https://api.example")
     mock_client = MagicMock()

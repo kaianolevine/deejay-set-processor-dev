@@ -462,7 +462,7 @@ wheels = [
 [[package]]
 name = "common-python-utils"
 version = "2.1.0"
-source = { git = "https://github.com/mini-app-polis/common-python-utils.git?rev=main#e871b0141746a2b9b356169c2e8422ea81cd71d5" }
+source = { git = "https://github.com/mini-app-polis/common-python-utils.git?rev=main#122b0bb653b2ed912aa7911fa4df7638652e6439" }
 dependencies = [
     { name = "google-api-python-client" },
     { name = "google-auth" },
@@ -660,7 +660,7 @@ wheels = [
 
 [[package]]
 name = "deejay-cog"
-version = "1.9.4"
+version = "1.10.0"
 source = { editable = "." }
 dependencies = [
     { name = "common-python-utils" },

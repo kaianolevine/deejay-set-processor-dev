@@ -141,8 +141,7 @@ def push_playlists_to_api(sp: Any) -> int | None:
         return None
 
     try:
-        from mini_app_polis.api import KaianoApiClient  # type: ignore
-        from mini_app_polis.api.errors import KaianoApiError  # type: ignore
+        from mini_app_polis.api import KaianoApiClient, KaianoApiError  # type: ignore
     except Exception as e:
         log.error("Kaiano API client not available; skipping playlist push: %s", e)
         return None
