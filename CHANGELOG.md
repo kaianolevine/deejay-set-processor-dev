@@ -1,3 +1,10 @@
+## [1.10.2](https://github.com/mini-app-polis/deejay-cog/compare/v1.10.1...v1.10.2) (2026-03-28)
+
+
+### Bug Fixes
+
+* setting up prefect deployments and spotify sync on process run ([8f447aa](https://github.com/mini-app-polis/deejay-cog/commit/8f447aab093f6e97d8cc6d0119045e06465a55ff))
+
 ## [1.10.1](https://github.com/mini-app-polis/deejay-cog/compare/v1.10.0...v1.10.1) (2026-03-28)
 
 
