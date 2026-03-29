@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 import sentry_sdk
 from dotenv import load_dotenv
@@ -34,23 +35,14 @@ def main() -> None:
     load_dotenv()
     sentry_sdk.init(dsn=os.getenv("SENTRY_DSN"), environment="production")
 
+    # Set working directory to app root so Prefect can locate flow code
+    os.chdir(Path(__file__).parent.parent.parent)
+
     serve(
-        process_new_csv_files_flow.to_deployment(
-            name="process-new-files",
-            entrypoint="src/deejay_cog/process_new_files.py:process_new_csv_files_flow",
-        ),
-        generate_summaries_flow.to_deployment(
-            name="generate-summaries",
-            entrypoint="src/deejay_cog/generate_summaries.py:generate_summaries_flow",
-        ),
-        generate_dj_set_collection.to_deployment(
-            name="update-deejay-set-collection",
-            entrypoint="src/deejay_cog/update_deejay_set_collection.py:generate_dj_set_collection",
-        ),
-        ingest_live_history.to_deployment(
-            name="ingest-live-history",
-            entrypoint="src/deejay_cog/ingest_live_history.py:ingest_live_history",
-        ),
+        process_new_csv_files_flow.to_deployment(name="process-new-files"),
+        generate_summaries_flow.to_deployment(name="generate-summaries"),
+        generate_dj_set_collection.to_deployment(name="update-deejay-set-collection"),
+        ingest_live_history.to_deployment(name="ingest-live-history"),
     )
 
 
