@@ -1,3 +1,11 @@
+## [1.11.3](https://github.com/mini-app-polis/deejay-cog/compare/v1.11.2...v1.11.3) (2026-03-29)
+
+
+### Bug Fixes
+
+* load served flows from source path ([d42202d](https://github.com/mini-app-polis/deejay-cog/commit/d42202d36aa26be57e553b3b7b73bce0a7045070))
+* uv lock ([8bc45aa](https://github.com/mini-app-polis/deejay-cog/commit/8bc45aa1b68402fae1f0a7db3b07db9cd6df4e84))
+
 ## [1.11.2](https://github.com/mini-app-polis/deejay-cog/compare/v1.11.1...v1.11.2) (2026-03-29)
 
 
