@@ -1,3 +1,10 @@
+## [1.11.6](https://github.com/mini-app-polis/deejay-cog/compare/v1.11.5...v1.11.6) (2026-04-02)
+
+
+### Bug Fixes
+
+* closing requirements gap, fixing release ([7a59a79](https://github.com/mini-app-polis/deejay-cog/commit/7a59a7998c30b257bb4a5ed9d695649b3617e96a))
+
 ## [1.11.5](https://github.com/mini-app-polis/deejay-cog/compare/v1.11.4...v1.11.5) (2026-04-02)
 
 
