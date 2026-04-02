@@ -1,3 +1,10 @@
+## [1.11.9](https://github.com/mini-app-polis/deejay-cog/compare/v1.11.8...v1.11.9) (2026-04-02)
+
+
+### Bug Fixes
+
+* env config only ([eb093a9](https://github.com/mini-app-polis/deejay-cog/commit/eb093a9c809924aa4d9a7a90ac0eb59a17d09e20))
+
 ## [1.11.8](https://github.com/mini-app-polis/deejay-cog/compare/v1.11.7...v1.11.8) (2026-04-02)
 
 
