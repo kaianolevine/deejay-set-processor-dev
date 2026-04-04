@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.11.10...v1.12.0) (2026-04-04)
+
+
+### Features
+
+* migrating tagging and naming ([522055e](https://github.com/mini-app-polis/deejay-cog/commit/522055e07582d0dcfffa57018bb54d772222c716))
+
 ## [1.11.10](https://github.com/mini-app-polis/deejay-cog/compare/v1.11.9...v1.11.10) (2026-04-03)
 
 
