@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.14.0...v1.15.0) (2026-04-17)
+
+
+### Features
+
+* upgrade common for auth ([820b97f](https://github.com/mini-app-polis/deejay-cog/commit/820b97fc17a043e2c64f6e72e3b8d86335a73c7d))
+
 # [1.14.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.13.0...v1.14.0) (2026-04-17)
 
 
