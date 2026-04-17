@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.15.0...v1.16.0) (2026-04-17)
+
+
+### Features
+
+* common upgrade ([2f28dad](https://github.com/mini-app-polis/deejay-cog/commit/2f28dad8707532e80f40334ddd2f945b9c108a23))
+
 # [1.15.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.14.0...v1.15.0) (2026-04-17)
 
 
