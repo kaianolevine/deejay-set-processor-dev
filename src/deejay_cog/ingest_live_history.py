@@ -194,7 +194,6 @@ def process_m3u_file(
         lines = g.drive.download_m3u_file_data(m3u_file["id"])
         file_date_str = filename.replace(".m3u", "").strip()
         parsed_entries = m3u_tool.parse.parse_m3u_lines(lines, set(), file_date_str)
-        parsed_entries = parsed_entries[-4:]
 
         payload = build_live_plays_payload(parsed_entries)
         if not payload["plays"]:

@@ -117,8 +117,8 @@ def test_ingest_live_history_sends_plays_and_returns_summary(monkeypatch) -> Non
     assert summary.files_failed == 0
 
 
-def test_ingest_live_history_sends_only_last_four_parsed_entries(monkeypatch) -> None:
-    """Parser returns oldest-first; only the last four entries are posted."""
+def test_ingest_live_history_sends_all_parsed_entries(monkeypatch) -> None:
+    """Parser returns oldest-first; every parsed entry is posted."""
     monkeypatch.setenv("KAIANO_API_BASE_URL", "https://example.test")
 
     fake_entries = [
@@ -152,11 +152,8 @@ def test_ingest_live_history_sends_only_last_four_parsed_entries(monkeypatch) ->
 
     _, payload = client.post.call_args.args
     assert "owner_id" not in payload
-    assert len(payload["plays"]) == 4
+    assert len(payload["plays"]) == 6
     assert [p["title"] for p in payload["plays"]] == [
-        "Track2",
-        "Track3",
-        "Track4",
-        "Track5",
+        f"Track{i}" for i in range(6)
     ]
-    assert summary.plays_sent == 4
+    assert summary.plays_sent == 6
