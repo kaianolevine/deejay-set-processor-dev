@@ -72,7 +72,6 @@ def test_ingest_live_history_skips_when_no_api_url(monkeypatch) -> None:
 
 def test_ingest_live_history_sends_plays_and_returns_summary(monkeypatch) -> None:
     monkeypatch.setenv("KAIANO_API_BASE_URL", "https://example.test")
-    monkeypatch.setenv("KAIANO_API_OWNER_ID", "owner-xyz")
 
     fake_entries = [
         SimpleNamespace(dt="2024-01-15 22:30", title="Track One", artist="Artist One"),
@@ -100,9 +99,7 @@ def test_ingest_live_history_sends_plays_and_returns_summary(monkeypatch) -> Non
     ):
         summary = live.ingest_live_history.fn()
 
-    mock_client_cls.assert_called_once_with(
-        base_url="https://example.test", owner_id="owner-xyz"
-    )
+    mock_client_cls.assert_called_once_with(base_url="https://example.test")
     parse_mock.assert_called_once()
     client.post.assert_called_once()
     path, payload = client.post.call_args.args
@@ -123,7 +120,6 @@ def test_ingest_live_history_sends_plays_and_returns_summary(monkeypatch) -> Non
 def test_ingest_live_history_sends_only_last_four_parsed_entries(monkeypatch) -> None:
     """Parser returns oldest-first; only the last four entries are posted."""
     monkeypatch.setenv("KAIANO_API_BASE_URL", "https://example.test")
-    monkeypatch.setenv("KAIANO_API_OWNER_ID", "owner-xyz")
 
     fake_entries = [
         SimpleNamespace(

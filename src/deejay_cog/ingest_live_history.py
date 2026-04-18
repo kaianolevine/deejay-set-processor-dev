@@ -27,12 +27,11 @@ except Exception:  # pragma: no cover
         pass
 
     class KaianoApiClient:
-        def __init__(self, base_url: str, owner_id: str | None = None):
-            self.base_url = base_url.rstrip("/")
-            self.owner_id = owner_id
+        def __init__(self, base_url: str):
+            self.base_url = base_url
 
         def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-            url = f"{self.base_url}{path}"
+            url = f"{self.base_url.rstrip('/')}{path}"
             body = json.dumps(payload).encode("utf-8")
             req = urllib.request.Request(
                 url,
@@ -232,7 +231,6 @@ def ingest_live_history() -> LiveIngestSummary:
     logger = _prefect_logger()
     g = GoogleAPI.from_env()
     base_url = os.getenv("KAIANO_API_BASE_URL", "").strip()
-    owner_id = (os.getenv("KAIANO_API_OWNER_ID") or os.getenv("OWNER_ID") or "").strip()
 
     if not base_url:
         logger.warning("KAIANO_API_BASE_URL not set — skipping live history ingest")
@@ -242,7 +240,7 @@ def ingest_live_history() -> LiveIngestSummary:
         _evaluate_live_ingest_run(summary)
         return summary
 
-    client = KaianoApiClient(base_url=base_url, owner_id=owner_id or None)
+    client = KaianoApiClient(base_url=base_url)
 
     m3u_files = list(g.drive.get_all_m3u_files() or [])
     if not m3u_files:

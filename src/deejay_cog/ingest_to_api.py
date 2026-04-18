@@ -21,12 +21,11 @@ except Exception:  # pragma: no cover
         pass
 
     class KaianoApiClient:  # minimal fallback
-        def __init__(self, base_url: str, owner_id: str | None = None):
-            self.base_url = base_url.rstrip("/")
-            self.owner_id = owner_id
+        def __init__(self, base_url: str):
+            self.base_url = base_url
 
         def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-            url = f"{self.base_url}{path}"
+            url = f"{self.base_url.rstrip('/')}{path}"
             body = json.dumps(payload).encode("utf-8")
             req = urllib.request.Request(
                 url,
@@ -211,8 +210,7 @@ def ingest_new_sets_to_api(
                   spreadsheet_id, date (YYYY-MM-DD), venue, label
     """
     base_url = os.getenv("KAIANO_API_BASE_URL", "").strip()
-    owner_id = (os.getenv("KAIANO_API_OWNER_ID") or os.getenv("OWNER_ID") or "").strip()
-    client = KaianoApiClient(base_url=base_url, owner_id=owner_id or None)
+    client = KaianoApiClient(base_url=base_url)
 
     meta_by_id = {m.get("spreadsheet_id"): m for m in set_metadata}
 
@@ -240,8 +238,6 @@ def ingest_new_sets_to_api(
         log.info(f"🚀 Sending to API: {label} ({len(tracks)} tracks)")
         payload["set_date"] = meta.get("date") or None
         payload["venue"] = meta.get("venue") or None
-        if owner_id:
-            payload["owner_id"] = owner_id
 
         try:
             client.post("/v1/ingest", payload)

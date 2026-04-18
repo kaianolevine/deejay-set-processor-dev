@@ -59,7 +59,6 @@ def test_ingest_new_sets_to_api_posts_each_set_with_correct_payload_shape(monkey
     )
 
     monkeypatch.setenv("KAIANO_API_BASE_URL", "https://example.test")
-    monkeypatch.setenv("KAIANO_API_OWNER_ID", "owner-123")
 
     client = SimpleNamespace(post=MagicMock(return_value={"ok": True}))
 
@@ -83,7 +82,7 @@ def test_ingest_new_sets_to_api_posts_each_set_with_correct_payload_shape(monkey
             ],
         )
 
-    mock_client.assert_called_once()
+    mock_client.assert_called_once_with(base_url="https://example.test")
     assert client.post.call_count == 2
 
     path, payload = client.post.call_args_list[0].args
@@ -91,7 +90,7 @@ def test_ingest_new_sets_to_api_posts_each_set_with_correct_payload_shape(monkey
     assert payload["set_date"] == "2024-01-01"
     assert payload["venue"] == "Venue"
     assert payload["source_file"] == "2024-01-01_Set"
-    assert payload["owner_id"] == "owner-123"
+    assert "owner_id" not in payload
     assert isinstance(payload["tracks"], list)
     assert payload["tracks"][0]["play_order"] == 1
 
