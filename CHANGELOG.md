@@ -1,3 +1,10 @@
+# [1.19.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.18.1...v1.19.0) (2026-04-18)
+
+
+### Features
+
+* major refresh with standards for direction and cleanup ([27bbd8a](https://github.com/mini-app-polis/deejay-cog/commit/27bbd8a2ba9bb6b0ae4e32b27073d84dedf02317))
+
 ## [1.18.1](https://github.com/mini-app-polis/deejay-cog/compare/v1.18.0...v1.18.1) (2026-04-18)
 
 
