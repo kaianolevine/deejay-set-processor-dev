@@ -3,5 +3,12 @@
 
 type: pipeline-cog
 
-# No traits, no exemptions, no deferrals.
-# deejay-cog had no exceptions in ecosystem.yaml — cleanest repo in the ecosystem.
+exemptions:
+  - rule: TEST-011
+    reason: "Evaluator false positive — check_mock_assertions regex only matches .assert_called* and misses .assert_not_called() (line 182 in test_ingest_to_api.py) and .call_count comparisons (line 149). Both are valid mock interrogation patterns. To remove this exemption, update check_mock_assertions in evaluator-cog to accept the full mock-assertion family."
+
+  - rule: PIPE-006
+    reason: "Evaluator false positive — check_prefect_run_logger searches for literal 'get_run_logger' inside flow bodies but deejay-cog calls get_prefect_logger(), a repo-local wrapper in _pipeline_eval.py that calls get_run_logger() with fallback (wrapper docstring: 'Satisfies PIPE-006'). The wrapper pattern is the intended implementation. To remove this exemption, update check_prefect_run_logger in evaluator-cog to accept calls to repo-local logger-wrapper functions."
+
+  - rule: CD-015
+    reason: "Evaluator false positive — check_prefect_serve_pattern looks for literal 'prefect.serve(' or 'flow.serve(' but main.py uses 'from prefect import serve' and then calls serve(...) directly (see main.py:25, main.py:48). Both import styles are valid. To remove this exemption, update check_prefect_serve_pattern in evaluator-cog to also accept bare serve(...) calls when prefect.serve is imported."
