@@ -61,6 +61,9 @@ from deejay_cog._pipeline_eval import (
 
 log = logger_mod.get_logger()
 
+# Retry backoff: short during tests, normal in production.
+_RETAG_MUSIC_RETRY_DELAY = 0 if os.getenv("PYTEST_CURRENT_TEST") else 15
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -151,7 +154,7 @@ class RetagSummary:
     skipped: int = field(default=0)
 
 
-@task(name="retag-music-file", retries=2, retry_delay_seconds=15)
+@task(name="retag-music-file", retries=2, retry_delay_seconds=_RETAG_MUSIC_RETRY_DELAY)
 def retag_music_file(
     g: GoogleAPI,
     file: Any,

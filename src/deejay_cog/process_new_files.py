@@ -28,6 +28,9 @@ log = logger_mod.get_logger()
 os.environ.setdefault("CSV_SOURCE_FOLDER_ID", "1t4d_8lMC3ZJfSyainbpwInoDta7n69hC")
 os.environ.setdefault("DJ_SETS_FOLDER_ID", "1A0tKQ2DBXI1Bt9h--olFwnBNne3am-rL")
 
+# Retry backoff: zero delay under pytest so retries do not slow the suite.
+_INGEST_TO_API_RETRY_DELAY = 0 if os.getenv("PYTEST_CURRENT_TEST") else 30
+
 
 @dataclass
 class CsvPipelineStats:
@@ -279,7 +282,7 @@ def _upload_csv_to_sheets(
 @task(
     name="ingest-to-api",
     retries=2,
-    retry_delay_seconds=30,
+    retry_delay_seconds=_INGEST_TO_API_RETRY_DELAY,
 )
 def _ingest_set_to_api(
     spreadsheet_id: str,
