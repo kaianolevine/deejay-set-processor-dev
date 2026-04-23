@@ -12,3 +12,6 @@ exemptions:
 
   - rule: CD-015
     reason: "Evaluator false positive — check_prefect_serve_pattern looks for literal 'prefect.serve(' or 'flow.serve(' but main.py uses 'from prefect import serve' and then calls serve(...) directly (see main.py:25, main.py:48). Both import styles are valid. To remove this exemption, update check_prefect_serve_pattern in evaluator-cog to also accept bare serve(...) calls when prefect.serve is imported."
+
+  - rule: CD-010
+    reason: "on-demand cog with no expected cadence — flows run only when Kaiano triggers DJ event processing (roughly monthly). Healthchecks.io's liveness model assumes a regular cadence and doesn't apply here. Per-flow success/failure is observable via Prefect run state."
