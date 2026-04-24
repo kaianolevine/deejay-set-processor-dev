@@ -1,3 +1,10 @@
+## [1.21.3](https://github.com/mini-app-polis/deejay-cog/compare/v1.21.2...v1.21.3) (2026-04-24)
+
+
+### Bug Fixes
+
+* **process_new_files:** make Archive move idempotent ([da7a33d](https://github.com/mini-app-polis/deejay-cog/commit/da7a33d193496956bbad80db858d26e456ddc6d0))
+
 ## [1.21.2](https://github.com/mini-app-polis/deejay-cog/compare/v1.21.1...v1.21.2) (2026-04-23)
 
 
