@@ -438,6 +438,54 @@ def test_rename_file_as_duplicate_calls_drive_rename():
     )
 
 
+def test_process_csv_file_skips_when_duplicate_exists_in_year_folder():
+    """TEST-002: end-to-end dedup — a CSV whose base name already exists
+    in the year folder is renamed with possible_duplicate_ prefix and
+    skipped (no upload, no archive). Exercises the row-level dedup
+    guard documented in evaluator.yaml via the flow entry point."""
+    filename = "2024-01-03_Duplicate Venue.csv"
+    file_meta = {"id": "file-dup", "name": filename}
+
+    def download_file(file_id: str, dest: str) -> None:
+        with open(dest, "w") as f:
+            f.write("Title,Artist\nSong,Artist\n")
+
+    existing_file = SimpleNamespace(
+        name="2024-01-03_Duplicate Venue.csv",
+        id="existing-file",
+    )
+
+    drive = SimpleNamespace(
+        download_file=MagicMock(side_effect=download_file),
+        ensure_folder=MagicMock(return_value="year-folder-id"),
+        list_files=MagicMock(return_value=[existing_file]),
+        rename_file=MagicMock(),
+        move_file=MagicMock(),
+        upload_csv_as_google_sheet=MagicMock(),
+    )
+    sheets = SimpleNamespace(
+        formatter=SimpleNamespace(apply_formatting_to_sheet=MagicMock())
+    )
+    g = SimpleNamespace(drive=drive, sheets=sheets)
+
+    stats = process_new_files.CsvPipelineStats()
+    result = process_new_files.process_csv_file.fn(g, file_meta, "2024", stats)
+
+    assert result == "duplicate"
+
+    drive.rename_file.assert_called_once()
+    new_name_arg = drive.rename_file.call_args[0][1]
+    assert new_name_arg == f"possible_duplicate_{filename}"
+
+    drive.upload_csv_as_google_sheet.assert_not_called()
+    drive.move_file.assert_not_called()
+
+    assert stats.duplicate_csv == 1
+    assert stats.sets_imported == 0
+
+    assert not os.path.exists(os.path.join("/tmp", filename))
+
+
 # -- process_non_csv_file ------------------------------------------------------
 
 
