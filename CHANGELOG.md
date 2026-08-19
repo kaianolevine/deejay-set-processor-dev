@@ -1,3 +1,10 @@
+## [1.23.1](https://github.com/mini-app-polis/deejay-cog/compare/v1.23.0...v1.23.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* **main:** wrap serve() startup registration in serve_with_retry ([3adb6e3](https://github.com/mini-app-polis/deejay-cog/commit/3adb6e31d9d92e509b9eb699ed568d6e5db2339b))
+
 # [1.23.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.22.2...v1.23.0) (2026-05-17)
 
 
