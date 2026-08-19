@@ -349,6 +349,24 @@ These dependencies are specific to `retag-music` and must be explicitly provisio
 
 ---
 
+### SERVE_RETRY_MAX_SECONDS
+
+| | |
+|--|--|
+| **Required** | No |
+| **Description** | Wall-clock ceiling, in seconds, for retrying Prefect deployment registration at startup. Defaults to `1800` (30 minutes). On give-up the process posts one `source="startup"` CRITICAL finding and exits non-zero so Railway's `ON_FAILURE` restart policy takes over — see [ADR-005](decisions/ADR-005-serve-startup-resilience.md). An unparseable or non-positive value is logged and ignored rather than crashing startup. |
+| **Example** | `3600` |
+| **Source** | Railway env var. Not set by default — the library default applies. |
+| **Used by** | `main.py`, indirectly: read by `mini_app_polis.serve_resilience.serve_with_retry` via `os.environ`. |
+
+> Deliberately **not** listed in `.env.example`. CFG-002 requires every
+> `.env.example` key to be a declared field on this repo's `Settings`
+> class, and nothing in deejay-cog reads this variable — the shared
+> library does. Declaring it in `Settings` would imply an ownership this
+> repo does not have. It is an operator override, documented here.
+
+---
+
 ## GitHub-only (workflows)
 
 ### KAIANO_API_REPO_TOKEN
@@ -394,4 +412,5 @@ These dependencies are specific to `retag-music` and must be explicitly provisio
 | PREFECT_API_URL | Yes (flows) | GitHub variable / `.env` | flow scripts (Prefect login) |
 | PREFECT_ACCOUNT_SLUG | Yes (workflows) | GitHub variable | workflows (Prefect login) |
 | PREFECT_WORKSPACE_SLUG | Yes (workflows) | GitHub variable | workflows (Prefect login) |
+| SERVE_RETRY_MAX_SECONDS | No | Railway env / library default | `main.py` (via `mini_app_polis.serve_resilience`) |
 | KAIANO_API_REPO_TOKEN | Yes (kaiano-api push) | GitHub secret | update_dj_set_collection, process_new_csv_files |

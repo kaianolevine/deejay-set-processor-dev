@@ -11,7 +11,26 @@ exemptions:
     reason: "Evaluator false positive — check_prefect_run_logger searches for literal 'get_run_logger' inside flow bodies but deejay-cog calls get_prefect_logger(), a repo-local wrapper in _pipeline_eval.py that calls get_run_logger() with fallback (wrapper docstring: 'Satisfies PIPE-006'). The wrapper pattern is the intended implementation. To remove this exemption, update check_prefect_run_logger in evaluator-cog to accept calls to repo-local logger-wrapper functions."
 
   - rule: CD-015
-    reason: "Evaluator false positive — check_prefect_serve_pattern looks for literal 'prefect.serve(' or 'flow.serve(' but main.py uses 'from prefect import serve' and then calls serve(...) directly (see main.py:25, main.py:48). Both import styles are valid. To remove this exemption, update check_prefect_serve_pattern in evaluator-cog to also accept bare serve(...) calls when prefect.serve is imported."
+    reason: >
+      Evaluator false positive — check_prefect_serve_pattern looks for
+      a literal 'prefect.serve(' or 'flow.serve(' call. As of ADR-005,
+      main.py registers its deployment via
+      'serve_with_retry(router.to_deployment(...), repo=REPO)' from
+      mini_app_polis.serve_resilience, which wraps prefect.serve() with
+      startup retry/backoff. There is no bare serve( token in the source
+      at all, so the checker's "neither serve() nor deploy() found —
+      registration pattern missing entirely" branch fires. The pattern is
+      present and correct; the detector cannot see through the shared
+      wrapper. CD-015's check_notes were updated in ecosystem-standards
+      to name serve_with_retry( as a valid registration mechanism (and
+      CD-016 now requires it). To remove this exemption, update
+      check_prefect_serve_pattern in evaluator-cog to accept
+      serve_with_retry( alongside prefect.serve( / flow.serve( /
+      bare serve( — then delete this entry.
+
+      Supersedes the pre-ADR-005 reason, which cited 'from prefect import
+      serve' + a bare serve(...) call at main.py:25 / main.py:48. Both
+      lines are gone.
 
   - rule: CD-010
     reason: "on-demand cog with no expected cadence — flows run only when Kaiano triggers DJ event processing (roughly monthly). Healthchecks.io's liveness model assumes a regular cadence and doesn't apply here. Per-flow success/failure is observable via Prefect run state."

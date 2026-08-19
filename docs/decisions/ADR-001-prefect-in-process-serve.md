@@ -52,6 +52,19 @@ run manually or on a different cadence.
   marks them as crashed. The `on_crashed` hooks in each flow handle
   crash reporting to evaluator-cog.
 
+  **Amended 2026-08-19 (see [ADR-005](./ADR-005-serve-startup-resilience.md)).**
+  This is true only for *flow-run* crashes. `on_crashed` and
+  `on_failure` hooks attach to flow runs, so they cover a run that was
+  interrupted mid-execution. They do **not** cover a crash during
+  `serve()`'s own deployment registration, which happens before any
+  flow run exists — no flow run, no hook, no finding. The 2026-07-22
+  Prefect Cloud 503 killed all four `serve()`-based cogs in exactly
+  that window and produced zero findings. Registration-time crashes
+  are now covered by `mini_app_polis.serve_resilience.serve_with_retry`,
+  which emits a `source="startup"` CRITICAL finding on give-up. Read
+  this bullet as scoped to flow runs; ADR-005 covers the rest of the
+  process lifecycle.
+
 **Harder:**
 
 - Horizontal scaling requires running multiple service instances,
@@ -65,3 +78,5 @@ run manually or on a different cadence.
 - ecosystem-standards CD-015 (prefect.serve is the canonical pattern)
 - ecosystem-standards PIPE-008 (repository_dispatch retired in favor
   of prefect.serve)
+- [ADR-005](./ADR-005-serve-startup-resilience.md) — amends the
+  crash-reporting claim in Consequences above

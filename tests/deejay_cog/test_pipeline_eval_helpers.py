@@ -35,7 +35,13 @@ def test_post_run_finding_binds_repo(monkeypatch) -> None:
     assert payload["repo"] == "deejay-cog"
     assert payload["flow_name"] == "my-flow"
     assert payload["severity"] == "SUCCESS"
-    assert payload["finding"] == "Run completed successfully."
+    # Use ``in`` rather than ``==`` because the library appends
+    # ``(processor=X.Y.Z)`` whenever the cog's distribution is installed
+    # — which it is in editable test environments. The processor suffix
+    # is the library's contract (tested in common-python-utils); this
+    # shim's contract is the repo/flow/severity binding and the default
+    # success text. Don't couple the two.
+    assert "Run completed successfully." in payload["finding"]
 
 
 def test_post_run_finding_drops_absorbed_kwargs_from_text(monkeypatch) -> None:
@@ -100,9 +106,9 @@ def test_post_run_finding_warn_includes_extras(monkeypatch) -> None:
             production_only=True,
             spotify_failed=2,
         )
-    assert post.call_args.args[0]["finding"] == (
-        "Completed with issues spotify_failed=2"
-    )
+    # ``in`` rather than ``==`` — the library appends
+    # ``(processor=X.Y.Z)`` when the cog distribution is installed.
+    assert "Completed with issues spotify_failed=2" in post.call_args.args[0]["finding"]
 
 
 def test_make_failure_hook_binds_repo_and_emits_warn(monkeypatch) -> None:

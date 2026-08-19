@@ -20,3 +20,4 @@ decision), **Decision** (what change is being made), and
 - [ADR-002: Production-vs-local flow tiers](./ADR-002-production-vs-local-flow-tiers.md)
 - [ADR-003: On-demand cog with no expected cadence](./ADR-003-on-demand-no-cadence.md)
 - [ADR-004: Best-effort pipeline evaluation posting](./ADR-004-best-effort-pipeline-eval.md)
+- [ADR-005: Resilient `serve()` startup — retry, restart policy, and the `startup` finding source](./ADR-005-serve-startup-resilience.md) — amends ADR-001
