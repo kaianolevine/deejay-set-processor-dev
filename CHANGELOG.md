@@ -1,3 +1,10 @@
+## [1.23.4](https://github.com/mini-app-polis/deejay-cog/compare/v1.23.3...v1.23.4) (2026-09-01)
+
+
+### Bug Fixes
+
+* custom machine token ([08eb2a7](https://github.com/mini-app-polis/deejay-cog/commit/08eb2a71a7e39a036a8663f86f7631ebe3a5fa31))
+
 ## [1.23.3](https://github.com/mini-app-polis/deejay-cog/compare/v1.23.2...v1.23.3) (2026-09-01)
 
 
