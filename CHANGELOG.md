@@ -1,3 +1,10 @@
+## [1.23.3](https://github.com/mini-app-polis/deejay-cog/compare/v1.23.2...v1.23.3) (2026-09-01)
+
+
+### Bug Fixes
+
+* **deps:** pin shared dependencies to exact tags ([80f58e6](https://github.com/mini-app-polis/deejay-cog/commit/80f58e69683908ba3651a49a9d22b701aa5bd097))
+
 ## [1.23.2](https://github.com/mini-app-polis/deejay-cog/compare/v1.23.1...v1.23.2) (2026-08-19)
 
 
