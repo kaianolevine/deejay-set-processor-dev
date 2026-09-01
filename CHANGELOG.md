@@ -1,3 +1,10 @@
+## [1.23.5](https://github.com/mini-app-polis/deejay-cog/compare/v1.23.4...v1.23.5) (2026-09-01)
+
+
+### Bug Fixes
+
+* filling out auth ([b94fe0a](https://github.com/mini-app-polis/deejay-cog/commit/b94fe0a8037171c223e81a4986f43d81d49d45d5))
+
 ## [1.23.4](https://github.com/mini-app-polis/deejay-cog/compare/v1.23.3...v1.23.4) (2026-09-01)
 
 
