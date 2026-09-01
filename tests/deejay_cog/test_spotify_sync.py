@@ -99,7 +99,7 @@ def test_push_playlists_to_api_posts_expected_payload(monkeypatch) -> None:
 
     with (
         patch.object(ss, "fetch_all_playlists", return_value=raw),
-        patch("deejay_cog.spotify_sync.KaianoApiClient", mock_cls),
+        patch("deejay_cog.spotify_sync.api_client", mock_cls),
     ):
         out = ss.push_playlists_to_api(object())
 
@@ -148,7 +148,7 @@ def test_push_playlists_to_api_defaults_public_collaborative_tracks_total(
 
     with (
         patch.object(ss, "fetch_all_playlists", return_value=raw),
-        patch("deejay_cog.spotify_sync.KaianoApiClient", mock_cls),
+        patch("deejay_cog.spotify_sync.api_client", mock_cls),
     ):
         out = ss.push_playlists_to_api(object())
 
@@ -175,7 +175,7 @@ def test_push_playlists_to_api_returns_none_on_kaiano_api_error(
     caplog.set_level(logging.ERROR)
     with (
         patch.object(ss, "fetch_all_playlists", return_value=[]),
-        patch("deejay_cog.spotify_sync.KaianoApiClient", mock_cls),
+        patch("deejay_cog.spotify_sync.api_client", mock_cls),
     ):
         assert ss.push_playlists_to_api(object()) is None
 

@@ -10,8 +10,10 @@ import os
 from typing import Any
 
 from mini_app_polis import logger as logger_mod
-from mini_app_polis.api import KaianoApiClient, KaianoApiError  # type: ignore
+from mini_app_polis.api import KaianoApiError  # type: ignore
 from mini_app_polis.spotify import SpotifyAPI
+
+from .api_client import api_client
 
 log = logger_mod.get_logger()
 
@@ -171,7 +173,7 @@ def push_playlists_to_api(sp: Any) -> int | None:
     }
 
     try:
-        client = KaianoApiClient.from_env()
+        client = api_client()
         response = client.post("/v1/spotify/playlists", payload)
     except KaianoApiError as e:
         log.error("Spotify playlist push to API failed: %s", e)

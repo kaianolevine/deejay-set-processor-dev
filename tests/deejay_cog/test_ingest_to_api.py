@@ -62,7 +62,7 @@ def test_ingest_new_sets_to_api_posts_each_set_with_correct_payload_shape(monkey
 
     client = SimpleNamespace(post=MagicMock(return_value={"ok": True}))
 
-    with patch.object(ingest, "KaianoApiClient", return_value=client) as mock_client:
+    with patch.object(ingest, "api_client", return_value=client) as mock_client:
         summary = ingest.ingest_new_sets_to_api(
             g,
             new_spreadsheet_ids=["ssid-1", "ssid-2"],
@@ -126,7 +126,7 @@ def test_ingest_new_sets_to_api_failure_on_one_set_does_not_abort(monkeypatch):
 
     client = SimpleNamespace(post=MagicMock(side_effect=post_side_effect))
 
-    with patch.object(ingest, "KaianoApiClient", return_value=client):
+    with patch.object(ingest, "api_client", return_value=client):
         summary = ingest.ingest_new_sets_to_api(
             g,
             new_spreadsheet_ids=["ssid-bad", "ssid-ok"],
@@ -165,7 +165,7 @@ def test_ingest_new_sets_to_api_skips_empty_sheet(monkeypatch):
     monkeypatch.setenv("KAIANO_API_BASE_URL", "https://example.test")
     client = SimpleNamespace(post=MagicMock())
 
-    with patch.object(ingest, "KaianoApiClient", return_value=client):
+    with patch.object(ingest, "api_client", return_value=client):
         summary = ingest.ingest_new_sets_to_api(
             g,
             new_spreadsheet_ids=["ssid-1"],

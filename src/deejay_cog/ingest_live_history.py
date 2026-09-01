@@ -8,7 +8,7 @@ from typing import Any
 
 import pytz
 from mini_app_polis import logger as logger_mod
-from mini_app_polis.api import KaianoApiClient, KaianoApiError
+from mini_app_polis.api import KaianoApiError
 from mini_app_polis.google import GoogleAPI
 from mini_app_polis.vdj.m3u import M3UToolbox
 from prefect import flow, task
@@ -19,6 +19,8 @@ from deejay_cog._pipeline_eval import (
     make_failure_hook,
     post_run_finding,
 )
+
+from .api_client import api_client
 
 log = logger_mod.get_logger()
 
@@ -150,7 +152,7 @@ def ingest_live_history() -> LiveIngestSummary:
             plays_sent=0, plays_failed=0, files_processed=0, files_failed=0
         )
     else:
-        client = KaianoApiClient(base_url=base_url)
+        client = api_client(base_url=base_url)
         m3u_files = list(g.drive.get_all_m3u_files() or [])
         if not m3u_files:
             logger.info("No .m3u files found. Nothing to ingest.")

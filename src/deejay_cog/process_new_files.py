@@ -314,8 +314,9 @@ def _ingest_set_to_api(
         return
 
     try:
-        from mini_app_polis.api import KaianoApiClient  # type: ignore
         from mini_app_polis.api.errors import KaianoApiError  # type: ignore
+
+        from .api_client import api_client
     except Exception as e:
         logger.warning(
             "⚠️ API client not available; skipping ingest for %s: %s", label, e
@@ -339,7 +340,7 @@ def _ingest_set_to_api(
 
         if stats is not None:
             stats.ingest_attempted += 1
-        client = KaianoApiClient.from_env()
+        client = api_client()
         client.post("/v1/ingest", payload)
         logger.info("✅ Ingested to API: %s (%d tracks)", label, len(final_tracks))
     except KaianoApiError as e:

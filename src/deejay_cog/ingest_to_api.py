@@ -15,14 +15,18 @@ log = logger_mod.get_logger()
 try:
     # Provided by common-python-utils (per ecosystem standards).
     from mini_app_polis.api import KaianoApiClient, KaianoApiError  # type: ignore
+
+    from .api_client import api_client
 except Exception:  # pragma: no cover
 
     class KaianoApiError(Exception):
         """TODO: describe this class."""
+
         pass
 
     class KaianoApiClient:  # minimal fallback
         """TODO: describe this class."""
+
         def __init__(self, base_url: str):
             self.base_url = base_url
 
@@ -49,10 +53,16 @@ except Exception:  # pragma: no cover
             except Exception as e:  # pragma: no cover
                 raise KaianoApiError(str(e)) from e
 
+    def api_client(base_url: str | None = None) -> KaianoApiClient:
+        """Fallback builder — no machine identity available without the
+        shared library, so this path cannot authenticate anyway."""
+        return KaianoApiClient(base_url or "")
+
 
 @dataclasses.dataclass
 class IngestSummary:
     """TODO: describe this class."""
+
     sets_sent: int
     sets_failed: int
     total_tracks: int
@@ -216,7 +226,7 @@ def ingest_new_sets_to_api(
                   spreadsheet_id, date (YYYY-MM-DD), venue, label
     """
     base_url = os.getenv("KAIANO_API_BASE_URL", "").strip()
-    client = KaianoApiClient(base_url=base_url)
+    client = api_client(base_url=base_url)
 
     meta_by_id = {m.get("spreadsheet_id"): m for m in set_metadata}
 
