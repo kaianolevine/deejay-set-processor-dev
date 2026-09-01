@@ -27,8 +27,8 @@ dev = [
 ]
 
 [tool.uv.sources]
-common-python-utils = { git = "https://github.com/mini-app-polis/common-python-utils.git", rev = "main" }
-evaluator-cog = { git = "https://github.com/mini-app-polis/evaluator-cog.git", rev = "main" }
+common-python-utils = { git = "https://github.com/mini-app-polis/common-python-utils.git", rev = "v3.1.0" }
+evaluator-cog = { git = "https://github.com/mini-app-polis/evaluator-cog.git", rev = "v3.14.5" }
 
 [build-system]
 requires = ["hatchling"]

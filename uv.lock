@@ -686,8 +686,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "common-python-utils", git = "https://github.com/mini-app-polis/common-python-utils.git?rev=main" },
-    { name = "evaluator-cog", git = "https://github.com/mini-app-polis/evaluator-cog.git?rev=main" },
+    { name = "common-python-utils", git = "https://github.com/mini-app-polis/common-python-utils.git?rev=v3.1.0" },
+    { name = "evaluator-cog", git = "https://github.com/mini-app-polis/evaluator-cog.git?rev=v3.14.5" },
     { name = "music-tag", specifier = ">=0.4.3" },
     { name = "musicbrainzngs", specifier = ">=0.7.1" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11.2" },
@@ -746,12 +746,14 @@ wheels = [
 
 [[package]]
 name = "evaluator-cog"
-version = "1.4.0"
-source = { git = "https://github.com/mini-app-polis/evaluator-cog.git?rev=main#3cf8f82f058bbce728ad1656e08e40e8e6b24c2e" }
+version = "3.14.5"
+source = { git = "https://github.com/mini-app-polis/evaluator-cog.git?rev=v3.14.5#caa499551b70e6d8151e3c92dd5cfe7767d718c3" }
 dependencies = [
     { name = "common-python-utils" },
     { name = "httpx" },
     { name = "prefect" },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
     { name = "sentry-sdk" },
 ]
 
