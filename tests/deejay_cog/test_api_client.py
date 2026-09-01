@@ -42,3 +42,69 @@ def test_blank_value_is_treated_as_unset(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_base_url_is_passed_through(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(MACHINE_SECRET_ENV, "sk_deejay")
     assert api_client(base_url="https://api.example/").base_url == "https://api.example"
+
+
+# ---------------------------------------------------------------------------
+# Self-registration
+# ---------------------------------------------------------------------------
+
+
+def test_registers_once_when_running_under_its_own_secret(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from unittest.mock import MagicMock
+
+    import deejay_cog.api_client as mod
+
+    monkeypatch.setattr(mod, "_registered", False)
+    monkeypatch.setenv(mod.MACHINE_SECRET_ENV, "sk_deejay")
+
+    posted = MagicMock(return_value={"principal": {"subject": "mch_x", "roles": []}})
+    monkeypatch.setattr(
+        mod, "KaianoApiClient", lambda **_kw: MagicMock(post=posted, **{})
+    )
+
+    mod.api_client()
+    mod.api_client()
+
+    assert posted.call_count == 1
+    assert posted.call_args[0][0] == "/v1/identity/register"
+    assert posted.call_args[0][1] == {"name": "deejay-cog"}
+
+
+def test_does_not_register_while_on_the_shared_secret(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Registering under the shared secret would bind the name to the wrong
+    subject, and the real machine would then be refused forever."""
+    from unittest.mock import MagicMock
+
+    import deejay_cog.api_client as mod
+
+    monkeypatch.setattr(mod, "_registered", False)
+    monkeypatch.delenv(mod.MACHINE_SECRET_ENV, raising=False)
+    monkeypatch.setenv("KAIANO_API_CLERK_MACHINE_SECRET", "sk_shared")
+
+    posted = MagicMock()
+    monkeypatch.setattr(mod, "KaianoApiClient", lambda **_kw: MagicMock(post=posted))
+
+    mod.api_client()
+    assert posted.call_count == 0
+
+
+def test_registration_failure_does_not_break_the_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A transient blip must not take out an ingest run."""
+    from unittest.mock import MagicMock
+
+    import deejay_cog.api_client as mod
+
+    monkeypatch.setattr(mod, "_registered", False)
+    monkeypatch.setenv(mod.MACHINE_SECRET_ENV, "sk_deejay")
+
+    posted = MagicMock(side_effect=RuntimeError("api down"))
+    monkeypatch.setattr(mod, "KaianoApiClient", lambda **_kw: MagicMock(post=posted))
+
+    client = mod.api_client()
+    assert client is not None
