@@ -1,3 +1,10 @@
+## [1.24.3](https://github.com/mini-app-polis/deejay-cog/compare/v1.24.2...v1.24.3) (2026-09-02)
+
+
+### Bug Fixes
+
+* **deps:** pin common-python-utils v4.0.0 ([19ea066](https://github.com/mini-app-polis/deejay-cog/commit/19ea06601dd3726e2a04c2c43ee874dd60c79d0e))
+
 ## [1.24.2](https://github.com/mini-app-polis/deejay-cog/compare/v1.24.1...v1.24.2) (2026-09-02)
 
 
