@@ -10,7 +10,6 @@ dependencies = [
     "prefect>=3.0,<4.0",
     "python-dotenv",
     "sentry-sdk",
-    "evaluator-cog",
     "music-tag>=0.4.3",
     "pyacoustid>=1.2.2",
     "musicbrainzngs>=0.7.1",
@@ -28,7 +27,6 @@ dev = [
 
 [tool.uv.sources]
 common-python-utils = { git = "https://github.com/mini-app-polis/common-python-utils.git", rev = "v3.2.0" }
-evaluator-cog = { git = "https://github.com/mini-app-polis/evaluator-cog.git", rev = "v3.14.5" }
 
 [build-system]
 requires = ["hatchling"]
