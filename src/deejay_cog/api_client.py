@@ -35,7 +35,9 @@ from mini_app_polis.api import KaianoApiClient  # type: ignore[import-untyped]
 #: derives DEEJAY_COG_API_KEY from the declared name.
 MACHINE_NAME = "deejay-cog"
 
-#: Doppler variable holding this cog's key. Only this cog reads it.
+#: Doppler variable holding this cog's key. Derived by the shared client from
+#: MACHINE_NAME, and by the API from the same name — one convention, no
+#: mapping to keep in step.
 API_KEY_ENV = "DEEJAY_COG_API_KEY"
 
 #: Legacy shared Clerk machine secret, read by the shared client when no key
@@ -61,4 +63,4 @@ def api_client(base_url: str | None = None) -> KaianoApiClient:
     ``KaianoApiClient.from_env()``, so the cog presents one identity from
     every call site rather than depending on which constructor was reached.
     """
-    return KaianoApiClient(base_url=base_url, api_key=api_key())
+    return KaianoApiClient(base_url=base_url, machine_name=MACHINE_NAME)
