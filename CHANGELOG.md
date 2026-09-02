@@ -1,3 +1,17 @@
+# [1.24.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.23.5...v1.24.0) (2026-09-02)
+
+
+### Bug Fixes
+
+* **deps:** drop unused evaluator-cog dependency, pin common-python-utils v3.2.0 ([47156ef](https://github.com/mini-app-polis/deejay-cog/commit/47156efc4648e59fb4cdab3ee5bc17d948250b8e))
+* **deps:** pin common-python-utils v3.2.0 for named API key auth ([8747530](https://github.com/mini-app-polis/deejay-cog/commit/8747530c917e74fd4eca2fe5ff754adf2bc6088f))
+
+
+### Features
+
+* **api:** authenticate with a named API key ([9f5e0f4](https://github.com/mini-app-polis/deejay-cog/commit/9f5e0f44ab7d14eab33e6763f725d0f2146a10e3))
+* **api:** authenticate with this cog's own named API key ([417b83d](https://github.com/mini-app-polis/deejay-cog/commit/417b83de490d2dc6bb946b5ad0deeee7b8ba0826))
+
 ## [1.23.5](https://github.com/mini-app-polis/deejay-cog/compare/v1.23.4...v1.23.5) (2026-09-01)
 
 
