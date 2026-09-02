@@ -15,45 +15,22 @@ The key proves who this cog is; it says nothing about what it may do. The API
 decides that from its own declaration, and nothing sent from here can widen
 it.
 
-Rollout and rollback are both a Doppler edit plus a restart:
+The shared client derives DEEJAY_COG_API_KEY from MACHINE_NAME, and the API
+derives the same variable from the same name — one convention, no mapping to
+keep in step. Rollout and rollback are both a Doppler edit plus a restart:
 
     set   DEEJAY_COG_API_KEY  -> authenticates as itself
     unset DEEJAY_COG_API_KEY  -> falls back to the shared Clerk machine secret
 
-No code change, no deploy. If the key turns out to be wrong, rollback is
-deleting one variable.
+No code change, no deploy.
 """
 
 from __future__ import annotations
 
-import os
-
 from mini_app_polis.api import KaianoApiClient  # type: ignore[import-untyped]
 
-#: This cog's name in api-kaianolevine-com's identity_registry.MACHINES, and
-#: the stem of the variable holding its key. The two must agree: the API
-#: derives DEEJAY_COG_API_KEY from the declared name.
+#: This cog's name in api-kaianolevine-com's identity_registry.MACHINES.
 MACHINE_NAME = "deejay-cog"
-
-#: Doppler variable holding this cog's key. Derived by the shared client from
-#: MACHINE_NAME, and by the API from the same name — one convention, no
-#: mapping to keep in step.
-API_KEY_ENV = "DEEJAY_COG_API_KEY"
-
-#: Legacy shared Clerk machine secret, read by the shared client when no key
-#: is set. Authenticates as the fleet machine, so calls are attributable only
-#: to "a cog".
-LEGACY_SECRET_ENV = "KAIANO_API_CLERK_MACHINE_SECRET"
-
-
-def api_key() -> str | None:
-    """This cog's own key, or None to fall back to the shared secret.
-
-    A variable that exists but is blank is treated as unset: it should behave
-    like an absent one, not like an empty credential that fails on the first
-    request.
-    """
-    return (os.environ.get(API_KEY_ENV) or "").strip() or None
 
 
 def api_client(base_url: str | None = None) -> KaianoApiClient:
