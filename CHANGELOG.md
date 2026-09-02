@@ -1,3 +1,10 @@
+## [1.24.2](https://github.com/mini-app-polis/deejay-cog/compare/v1.24.1...v1.24.2) (2026-09-02)
+
+
+### Bug Fixes
+
+* **api-client:** drop the shared Clerk machine secret fallback ([3917145](https://github.com/mini-app-polis/deejay-cog/commit/3917145383e1ccd030ccab1bd22a94e981ffac10))
+
 ## [1.24.1](https://github.com/mini-app-polis/deejay-cog/compare/v1.24.0...v1.24.1) (2026-09-02)
 
 
