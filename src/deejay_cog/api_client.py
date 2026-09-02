@@ -17,12 +17,10 @@ it.
 
 The shared client derives DEEJAY_COG_API_KEY from MACHINE_NAME, and the API
 derives the same variable from the same name — one convention, no mapping to
-keep in step. Rollout and rollback are both a Doppler edit plus a restart:
-
-    set   DEEJAY_COG_API_KEY  -> authenticates as itself
-    unset DEEJAY_COG_API_KEY  -> falls back to the shared Clerk machine secret
-
-No code change, no deploy.
+keep in step. There is no fallback. The shared Clerk machine secret this replaced is gone:
+every cog holding one credential indistinguishable from every other cog's was
+the reason the API could tell that *a* cog called and never which one, so
+keeping it available would have kept that ambiguity available.
 """
 
 from __future__ import annotations

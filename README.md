@@ -84,7 +84,7 @@ API and Prefect (production):
 |----------|-------------|
 | **ANTHROPIC_API_KEY** | With **`KAIANO_API_BASE_URL`**, enables **production** `post_run_finding` posts to pipeline evaluations. |
 | **KAIANO_API_BASE_URL** | api-kaianolevine-com base URL; required for API ingest and for gated evaluation posts. |
-| **KAIANO_API_CLERK_MACHINE_SECRET** | M2M auth for the API client (see common-python-utils). |
+| **DEEJAY_COG_API_KEY** | M2M auth for the API client (see common-python-utils). |
 | **PREFECT_API_KEY** / **PREFECT_API_URL** | Prefect Cloud worker authentication. |
 
 Spotify variables (`SPOTIPY_*`, `SPOTIFY_RADIO_PLAYLIST_ID`) are optional; if incomplete, Spotify steps are skipped.

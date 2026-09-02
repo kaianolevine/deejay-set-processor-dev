@@ -25,19 +25,7 @@ def test_does_not_pick_up_another_cogs_key(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.delenv("DEEJAY_COG_API_KEY", raising=False)
     monkeypatch.delenv("KAIANO_API_KEY", raising=False)
     monkeypatch.setenv("EVALUATOR_COG_API_KEY", "k_evaluator")
-    monkeypatch.setenv("KAIANO_API_CLERK_MACHINE_SECRET", "sk_shared")
     assert api_client().api_key is None
-
-
-def test_falls_back_to_the_shared_secret(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Unsetting one variable restores previous behaviour — the rollback path."""
-    monkeypatch.delenv("DEEJAY_COG_API_KEY", raising=False)
-    monkeypatch.delenv("KAIANO_API_KEY", raising=False)
-    monkeypatch.setenv("KAIANO_API_CLERK_MACHINE_SECRET", "sk_shared")
-    monkeypatch.setattr("mini_app_polis.api.client._get_m2m_token", lambda _s: "tok")
-    client = api_client()
-    assert client.api_key is None
-    assert client._headers()["Authorization"] == "Bearer tok"
 
 
 def test_blank_key_is_treated_as_unset(monkeypatch: pytest.MonkeyPatch) -> None:
