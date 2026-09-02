@@ -1,3 +1,10 @@
+## [1.24.1](https://github.com/mini-app-polis/deejay-cog/compare/v1.24.0...v1.24.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **api-client:** test the path production takes ([ac44e52](https://github.com/mini-app-polis/deejay-cog/commit/ac44e52f415aeac660e7419ca1db0a5f233bba26))
+
 # [1.24.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.23.5...v1.24.0) (2026-09-02)
 
 
