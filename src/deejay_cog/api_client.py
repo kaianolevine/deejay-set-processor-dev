@@ -1,48 +1,57 @@
-"""This cog's API client — and its machine identity.
+"""This cog's API client — and its identity.
 
-Every cog reads ``KAIANO_API_CLERK_MACHINE_SECRET``, because that name lives
-in shared library code (``mini_app_polis.api.KaianoApiClient``). With one
-Doppler config behind the whole fleet, that name therefore carries one value
-for everyone: possession of it is the only identity claim any cog makes, so
-the API can tell that *a* cog called it and never which one. That is the
-per-caller attribution Project Keystone set out to get and did not land.
+deejay-cog authenticates to api-kaianolevine-com with its own named API key.
+The key identifies the cog: the API matches it against the keys it holds in
+configuration, so nothing here asserts a name and nothing has to be looked up
+at runtime.
 
-Changing that shared value in place would re-key every cog at once, and each
-would immediately start presenting a subject with no principal row behind it.
-So identity moves one cog at a time, under a name only this cog reads.
+That is what makes the audit trail worth having. Every cog used to share one
+Clerk machine secret, so the API could tell that *a* cog called it and never
+which one — the per-caller attribution Project Keystone set out to get and did
+not land. A key per cog is what makes the subject in the trail mean something,
+and what makes one cog revocable without revoking the fleet.
 
-The fallback is what makes that safe:
+The key proves who this cog is; it says nothing about what it may do. The API
+decides that from its own declaration, and nothing sent from here can widen
+it.
 
-    set   DEEJAY_COG_CLERK_MACHINE_SECRET  -> this cog authenticates as itself
-    unset DEEJAY_COG_CLERK_MACHINE_SECRET  -> falls back to the shared secret
+Rollout and rollback are both a Doppler edit plus a restart:
 
-Both directions are a Doppler edit and a restart, with no code change and no
-deploy. If the new machine turns out to be misconfigured, rollback is
+    set   DEEJAY_COG_API_KEY  -> authenticates as itself
+    unset DEEJAY_COG_API_KEY  -> falls back to the shared Clerk machine secret
+
+No code change, no deploy. If the key turns out to be wrong, rollback is
 deleting one variable.
 """
 
 from __future__ import annotations
 
-import logging
 import os
 
 from mini_app_polis.api import KaianoApiClient  # type: ignore[import-untyped]
 
-_log = logging.getLogger(__name__)
+#: This cog's name in api-kaianolevine-com's identity_registry.MACHINES, and
+#: the stem of the variable holding its key. The two must agree: the API
+#: derives DEEJAY_COG_API_KEY from the declared name.
+MACHINE_NAME = "deejay-cog"
 
-#: Doppler variable holding deejay-cog's own Clerk machine secret. Only this
-#: cog reads it. Changing this name is a coordinated Doppler change.
-MACHINE_SECRET_ENV = "DEEJAY_COG_CLERK_MACHINE_SECRET"
+#: Doppler variable holding this cog's key. Only this cog reads it.
+API_KEY_ENV = "DEEJAY_COG_API_KEY"
+
+#: Legacy shared Clerk machine secret, read by the shared client when no key
+#: is set. Authenticates as the fleet machine, so calls are attributable only
+#: to "a cog".
+LEGACY_SECRET_ENV = "KAIANO_API_CLERK_MACHINE_SECRET"
 
 
-def machine_secret() -> str | None:
-    """This cog's own machine secret, or None to fall back to the shared one.
+def api_key() -> str | None:
+    """This cog's own key, or None to fall back to the shared secret.
 
-    Empty string is treated as unset: a Doppler variable that exists but is
-    blank should behave like an absent one, not like an empty credential that
-    fails at the first request.
+    A variable that exists but is blank is treated as unset: it should behave
+    like an absent one, not like an empty credential that fails on the first
+    request.
     """
-    return os.environ.get(MACHINE_SECRET_ENV) or None
+    return (os.environ.get(API_KEY_ENV) or "").strip() or None
 
 
 def api_client(base_url: str | None = None) -> KaianoApiClient:
@@ -52,47 +61,4 @@ def api_client(base_url: str | None = None) -> KaianoApiClient:
     ``KaianoApiClient.from_env()``, so the cog presents one identity from
     every call site rather than depending on which constructor was reached.
     """
-    client = KaianoApiClient(base_url=base_url, machine_secret=machine_secret())
-    _ensure_registered(client)
-    return client
-
-
-#: This cog's name in api-kaianolevine-com's identity_registry.MACHINES.
-#: The API grants roles by name; this cog never needs to know its Clerk id.
-MACHINE_NAME = "deejay-cog"
-
-_registered = False
-
-
-def _ensure_registered(client: KaianoApiClient) -> None:
-    """Bind this cog's Clerk subject to its declared name, once per process.
-
-    The API takes the subject from the verified token, so registering is how
-    a machine tells the ecosystem "the credential you just saw is me" without
-    any human looking up a Clerk id.
-
-    Only when running under this cog's own secret. Registering while still on
-    the shared fleet secret would bind the name `deejay-cog` to the shared
-    machine's subject, and the real one would then be refused as
-    `name_already_bound` — the exact wrong row, permanently.
-
-    Best-effort: a failure here is logged, not raised. Registration is not
-    required for anything until a scope is enforced, and if one is, the
-    ordinary authorization path denies the call rather than letting it
-    through. Failing loudly here would turn a transient blip into a dead
-    ingest run.
-    """
-    global _registered
-    if _registered or machine_secret() is None:
-        return
-    _registered = True
-    try:
-        result = client.post("/v1/identity/register", {"name": MACHINE_NAME})
-        principal = (result or {}).get("principal", {})
-        _log.info(
-            "[identity] registered as %s roles=%s",
-            principal.get("subject"),
-            principal.get("roles"),
-        )
-    except Exception as exc:  # noqa: BLE001 - see docstring
-        _log.warning("[identity] registration failed (continuing): %r", exc)
+    return KaianoApiClient(base_url=base_url, api_key=api_key())
