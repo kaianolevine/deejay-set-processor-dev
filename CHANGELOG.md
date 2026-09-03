@@ -1,3 +1,15 @@
+# [1.25.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.24.3...v1.25.0) (2026-09-03)
+
+
+### Bug Fixes
+
+* **deps:** refresh the lock to clear the audit findings ([dd84648](https://github.com/mini-app-polis/deejay-cog/commit/dd846482c75514217b842637666f280b70b892c0))
+
+
+### Features
+
+* **security:** call the shared security workflow ([38179db](https://github.com/mini-app-polis/deejay-cog/commit/38179db71d54202859d6fd0fb75a0d23af8952ba))
+
 ## [1.24.3](https://github.com/mini-app-polis/deejay-cog/compare/v1.24.2...v1.24.3) (2026-09-02)
 
 
