@@ -1,3 +1,10 @@
+# [1.27.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.26.0...v1.27.0) (2026-09-04)
+
+
+### Features
+
+* **deps:** automate dependency updates ([b7030f6](https://github.com/mini-app-polis/deejay-cog/commit/b7030f6beda43886c5d6a8e347d20ebdc6d8e869))
+
 # [1.26.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.25.0...v1.26.0) (2026-09-04)
 
 
