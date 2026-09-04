@@ -1,3 +1,10 @@
+# [1.26.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.25.0...v1.26.0) (2026-09-04)
+
+
+### Features
+
+* **deploy:** declare resource ceilings (placeholder values) ([0efbcb3](https://github.com/mini-app-polis/deejay-cog/commit/0efbcb3bf0e69e4a982ba0b804f8275b582e10b4))
+
 # [1.25.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.24.3...v1.25.0) (2026-09-03)
 
 
