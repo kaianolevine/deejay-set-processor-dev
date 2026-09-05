@@ -1,3 +1,10 @@
+## [1.27.2](https://github.com/mini-app-polis/deejay-cog/compare/v1.27.1...v1.27.2) (2026-09-05)
+
+
+### Bug Fixes
+
+* **deps:** consume miniapppolis-common-utils from PyPI ([2effa7d](https://github.com/mini-app-polis/deejay-cog/commit/2effa7d5f297ee0962af1393013d910d66f10aa6))
+
 ## [1.27.1](https://github.com/mini-app-polis/deejay-cog/compare/v1.27.0...v1.27.1) (2026-09-05)
 
 
