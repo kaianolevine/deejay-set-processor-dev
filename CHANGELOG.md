@@ -1,3 +1,10 @@
+## [1.27.1](https://github.com/mini-app-polis/deejay-cog/compare/v1.27.0...v1.27.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **git:** never three-way merge a lockfile ([617ec71](https://github.com/mini-app-polis/deejay-cog/commit/617ec71754075c8cfe315ef6289e6380d332d1c9))
+
 # [1.27.0](https://github.com/mini-app-polis/deejay-cog/compare/v1.26.0...v1.27.0) (2026-09-04)
 
 
