@@ -1,3 +1,10 @@
+## [1.27.3](https://github.com/mini-app-polis/deejay-cog/compare/v1.27.2...v1.27.3) (2026-09-06)
+
+
+### Bug Fixes
+
+* **release:** source the version from a committed file instead of pyproject.toml ([457eed4](https://github.com/mini-app-polis/deejay-cog/commit/457eed43294c8edc304be2ec5e6c84c949885899))
+
 ## [1.27.2](https://github.com/mini-app-polis/deejay-cog/compare/v1.27.1...v1.27.2) (2026-09-05)
 
 
