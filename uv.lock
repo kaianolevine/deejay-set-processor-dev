@@ -848,7 +848,6 @@ wheels = [
 
 [[package]]
 name = "deejay-cog"
-version = "1.27.2"
 source = { editable = "." }
 dependencies = [
     { name = "miniapppolis-common-utils" },

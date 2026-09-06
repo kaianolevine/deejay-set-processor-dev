@@ -12,13 +12,13 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "uv version ${nextRelease.version} && uv lock"
+        "prepareCmd": "printf '__version__ = \"%s\"\\n' \"${nextRelease.version}\" > src/deejay_cog/_version.py"
       }
     ],
     [
       "@semantic-release/git",
       {
-        "assets": ["CHANGELOG.md", "pyproject.toml", "uv.lock"],
+        "assets": ["CHANGELOG.md", "src/deejay_cog/_version.py"],
         "message": "chore(release): ${nextRelease.version}\n\n${nextRelease.notes}"
       }
     ],

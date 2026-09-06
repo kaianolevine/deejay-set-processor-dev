@@ -1,6 +1,6 @@
 [project]
 name = "deejay-cog"
-version = "1.27.2"
+dynamic = ["version"]
 description = "DJ set CSV processor. Normalizes, validates, and ingests DJ set data into Google Sheets and api-kaianolevine-com."
 readme = "README.md"
 license = { text = "MIT" }
@@ -28,6 +28,9 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/deejay_cog/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/deejay_cog"]
