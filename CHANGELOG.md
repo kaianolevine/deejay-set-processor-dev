@@ -1,3 +1,10 @@
+## [1.27.4](https://github.com/mini-app-polis/deejay-cog/compare/v1.27.3...v1.27.4) (2026-09-07)
+
+
+### Bug Fixes
+
+* include uv.lock in release artifacts ([70c454d](https://github.com/mini-app-polis/deejay-cog/commit/70c454d938bbbab28993d0631a0df0c4c976db08))
+
 ## [1.27.3](https://github.com/mini-app-polis/deejay-cog/compare/v1.27.2...v1.27.3) (2026-09-06)
 
 
