@@ -1,3 +1,10 @@
+## [1.27.5](https://github.com/mini-app-polis/deejay-cog/compare/v1.27.4...v1.27.5) (2026-09-07)
+
+
+### Bug Fixes
+
+* remove uv.lock from release (PY-017) ([c46dddd](https://github.com/mini-app-polis/deejay-cog/commit/c46dddd6f1865c4480e3f07474791433b5f49761))
+
 ## [1.27.4](https://github.com/mini-app-polis/deejay-cog/compare/v1.27.3...v1.27.4) (2026-09-07)
 
 
