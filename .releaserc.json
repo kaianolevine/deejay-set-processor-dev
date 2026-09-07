@@ -1,5 +1,7 @@
 {
-  "branches": ["main"],
+  "branches": [
+    "main"
+  ],
   "plugins": [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
@@ -12,13 +14,17 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "printf '__version__ = \"%s\"\\n' \"${nextRelease.version}\" > src/deejay_cog/_version.py"
+        "prepareCmd": "printf '__version__ = \"%s\"\\n' \"${nextRelease.version}\" > src/deejay_cog/_version.py && uv lock"
       }
     ],
     [
       "@semantic-release/git",
       {
-        "assets": ["CHANGELOG.md", "src/deejay_cog/_version.py"],
+        "assets": [
+          "CHANGELOG.md",
+          "src/deejay_cog/_version.py",
+          "uv.lock"
+        ],
         "message": "chore(release): ${nextRelease.version}\n\n${nextRelease.notes}"
       }
     ],
